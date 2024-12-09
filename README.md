@@ -25,7 +25,7 @@ And usage, just need to request the library's autoload file:
 
 ```php
 require __DIR__ . '/tiny-env/loader.php'; // or require 'tiny-env/loader.php';
-use Datahihi1\TinyEnv\TinyEnv; // when use function in library: putenv(), getenv()
+use Datahihi1\TinyEnv\TinyEnv; // when use function in library: putenv()
 ```
 
 With projects use Composer, add:

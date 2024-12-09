@@ -1,27 +1,12 @@
 <?php
 
-// Kiểm tra nếu Composer autoload có sẵn sử dụng autoload của Composer
-if (file_exists(__DIR__ . '/vendor/autoload.php')) {
-    require __DIR__ . '/vendor/autoload.php';
-} else {
-    // Nếu không có Composer, tự tạo autoloader
-    spl_autoload_register(function ($class) {
-        $prefix = 'Datahihi1\\TinyEnv\\';
-        $baseDir = __DIR__ . '/src/';
+spl_autoload_register(function ($class) {    
+    $fileName = "src/TinyEnv.php";
 
-        $len = strlen($prefix);
-        if (strncmp($prefix, $class, $len) !== 0) {
-            return;
-        }
-
-        $relativeClass = substr($class, $len);
-        $file = $baseDir . str_replace('\\', '/', $relativeClass) . '.php';
-
-        if (file_exists($file)) {
-            require $file;
-        }
-    });
-}
+    if (is_readable($fileName)) {
+        require_once $fileName;
+    } 
+});
 
 require_once __DIR__ . '/src/TinyEnv.php';
 use Datahihi1\TinyEnv\TinyEnv;
@@ -31,7 +16,7 @@ $env->load();
 
 if (!function_exists('env')) {
     /**
-     * Summary of env
+     * env() function can be replace $_ENV[] to get environment variables in .env
      * @param mixed $key
      * @param mixed $default
      * @return mixed
@@ -42,17 +27,13 @@ if (!function_exists('env')) {
     }
 }
 
-// Định nghĩa hàm getenv() toàn cục nếu chưa tồn tại
-if (!function_exists('getenv')) {
-
-    function getenv($key = null, $default = null)
-    {
-        return TinyEnv::getenv($key, $default);
-    }
-}
-
-// Định nghĩa hàm putenv() toàn cục nếu chưa tồn tại
 if (!function_exists('putenv')) {
+    /**
+     * TinyEnv::putenv()
+     * @param mixed $key
+     * @param mixed $default
+     * @return mixed
+     */
     function putenv($key, $value = null)
     {
         return TinyEnv::putenv($key, $value);

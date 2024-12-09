@@ -17,10 +17,13 @@ class TinyEnv
 
         $this->rootDir = realpath($rootDir);
     }
+    /**
+     * Load variables from all relevant files
+     * 
+     */
 
     public function load()
     {
-        // Load variables from all relevant files
         $this->loadEnvFiles($this->rootDir);
         $this->loadAdditionalFiles($this->rootDir);
     }
@@ -132,11 +135,6 @@ class TinyEnv
             return $_ENV;
         }
         return isset($_ENV[$key]) ? $_ENV[$key] : $default;
-    }
-
-    public static function getenv($key = null, $default = null)
-    {
-        return self::env($key, $default);
     }
 
     public static function putenv($key, $value)
