@@ -9,18 +9,7 @@ A simple environment loader for PHP applications, used for small projects that d
 
 For pure PHP projects, TinyEnv should be set to the following structure:
 
-Project/
-├── dir1/
-├── dir2/
-│   └── .env
-├── package/
-│   ├── TinyEnv/
-│   │   ├── src/
-│   │   │   └── TinyEnv.php
-│   │   ├── loader.php
-│   │   └── composer.json
-└── .env
-└── index.php
+![Structure](https://datahihi1.id.vn/Screenshot_2024-12-20_225512.png)
 
 NOTE: index.php is a small example to show how the package works.
 
