@@ -74,7 +74,7 @@ or add it by hand to your `composer.json` file:
     }
 ```
 
-## Usage
+##### Usage:
 
 Composer autoload requirements:
 
@@ -92,8 +92,13 @@ $env->load();
 
 But now to use the env() function, you need to point directly at the library function:
 
+###### With PHP 5.4 < 5.6 :
+```php
+$env = Datahihi1\TinyEnv\env('HOST','localhost');
+```
+
+###### With PHP 5.6 above :
 ```php
 use function Datahihi1\TinyEnv\env;
-$env = env('TESTER','Datahihi1');
-print_r($env);
+$env = env('HOST','localhost');
 ```
