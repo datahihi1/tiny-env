@@ -8,6 +8,11 @@
             "Datahihi1\\TinyEnv\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
     "authors": [
         {
             "name": "datahihi1",
@@ -16,5 +21,8 @@
     ],
     "require": {
       "php": ">=5.4.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.5"
     }
 }
