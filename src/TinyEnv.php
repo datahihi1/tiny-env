@@ -7,175 +7,107 @@ namespace Datahihi1\TinyEnv;
  */
 class TinyEnv
 {
-    protected $envFile = '.env';
-    protected $exampleEnvFile = '.env.example';
-    protected $iniFiles = '.ini';
-    protected $rootDirs = [];
+    protected $rootDirs;
+    protected $onlyEnvFile;
 
     /**
      * Constructor: Initializes the TinyEnv instance with the given root directories.
      *
-     * @param string|array $rootDirs The root directory (or directories) to load files from.
-     * @throws \InvalidArgumentException If the provided directories are invalid.
+     * @param string|array $rootDirs The root directory to load files from.
+     * @param bool $onlyEnvFile Whether to load only `.env` files and skip `.ini` files.
      */
-    public function __construct($rootDirs)
+    public function __construct($rootDirs, $onlyEnvFile = false)
     {
-        if (!is_array($rootDirs)) {
-            $rootDirs = [$rootDirs];
-        }
-
-        foreach ($rootDirs as $dir) {
-            if (!is_dir($dir)) {
-                throw new \InvalidArgumentException(sprintf('%s is not a valid directory', $dir));
-            }
-        }
-
-        $this->rootDirs = array_unique(array_map('realpath', $rootDirs));
+        $this->rootDirs = is_array($rootDirs) ? $rootDirs : array($rootDirs);
+        $this->onlyEnvFile = $onlyEnvFile;
     }
 
     /**
      * Main loader: Initializes the application by loading required files.
      * Specifically, it loads environment-specific configuration files 
      * and other supplementary files necessary for the application's operation.
-     * 
+     * If .env is not found, .env.example is used.
+     *
      * @return void
      */
     public function load()
     {
-        $loadedEnv = false;
-
         foreach ($this->rootDirs as $dir) {
-            if (!$loadedEnv) {
-                $loadedEnv = $this->loadEnvFiles($dir);
+            $envLoaded = $this->loadEnvFile($dir . DIRECTORY_SEPARATOR . '.env');
+
+            if (!$envLoaded && !$this->onlyEnvFile) {
+                $this->loadEnvFile($dir . DIRECTORY_SEPARATOR . '.env.example');
             }
-            $this->loadAdditionalFiles($dir);
-        }
-    }
 
-    /**
-     * Loads `.env` and `.env.example` files from the specified directory.
-     *
-     * @param string $dir The directory to load files from.
-     * @return bool True if `.env` file was loaded successfully, false otherwise.
-     */
-    protected function loadEnvFiles($dir)
-    {
-        $envFiles = [$this->envFile, $this->exampleEnvFile];
-        foreach ($envFiles as $file) {
-            $filePath = $dir . DIRECTORY_SEPARATOR . $file;
-            if (is_file($filePath)) {
-                $this->loadFile($filePath, $file === $this->envFile);
-
-                if ($file === $this->envFile) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Scans the directory for `.env` and `.ini` files and loads them into the environment.
-     *
-     * @param string $dir The directory to scan and load files from.
-     */
-    protected function loadAdditionalFiles($dir)
-    {
-        $files = scandir($dir);
-
-        foreach ($files as $file) {
-            $filePath = $dir . DIRECTORY_SEPARATOR . $file;
-
-            if (is_file($filePath)) {
-                if ($this->endsWith($file, '.env')) {
-                    $this->loadFile($filePath);
-                } elseif ($this->endsWith($file, '.ini')) {
-                    $this->loadIniFile($filePath);
-                }
+            if (!$this->onlyEnvFile) {
+                $this->loadIniFile($dir . DIRECTORY_SEPARATOR . '.ini');
             }
         }
     }
 
     /**
-     * Reads and processes a `.env` file line-by-line, adding variables to `$_ENV`.
+     * Parse a .env file and store the variables in the $_ENV array.
+     * Skips comments and invalid lines.
      *
-     * @param string $envFile The path to the `.env` file.
-     * @param bool $overwrite Whether to overwrite existing variables in `$_ENV`.
+     * @param string $file Path to the .env file.
+     * @return true
      */
-    protected function loadFile($envFile, $overwrite = true)
+    protected function loadEnvFile($file)
     {
-        if (!is_readable($envFile)) {
-            error_log(sprintf('Warning: %s file is not readable.', $envFile));
-            return;
+        if (!is_file($file) || !is_readable($file)) {
+            return false;
         }
 
-        $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         foreach ($lines as $line) {
-            if (strpos(trim($line), '#') === 0 || strpos($line, '=') === false) {
+            $line = trim($line);
+
+            if (strpos($line, '#') === 0 || strpos($line, '=') === false) {
                 continue;
             }
 
-            list($name, $value) = explode('=', $line, 2);
-            $name = trim($name);
-            $value = trim($value);
+            list($key, $value) = explode('=', $line, 2);
+            $key = trim($key);
+            $value = trim($value, " \t\n\r\0\x0B\"");
 
-            if (substr($value, 0, 1) === '"' && substr($value, -1) === '"') {
-                $value = substr($value, 1, -1);
-            }
-
-            if ($overwrite || !array_key_exists($name, $_ENV)) {
-                $_ENV[$name] = $value;
-            }
+            $_ENV[$key] = $value;
         }
+        return true;
     }
 
     /**
-     * Reads and processes a `.ini` file, converting its sections into environment variables.
+     * Parse a .ini file and store the variables in the $_ENV array.
+     * Sectioned keys are converted to uppercase and prefixed.
      *
-     * @param string $filePath The path to the `.ini` file.
+     * @param string $file Path to the .ini file.
+     * @return true
      */
-    protected function loadIniFile($filePath)
+    protected function loadIniFile($file)
     {
-        if (!is_readable($filePath)) {
-            error_log(sprintf('Warning: %s file is not readable.', $filePath));
-            return;
+        if (!is_file($file) || !is_readable($file)) {
+            return false;
         }
 
-        $data = parse_ini_file($filePath, true);
+        $data = parse_ini_file($file, true);
         foreach ($data as $section => $values) {
-            if (is_array($values)) {
-                foreach ($values as $key => $value) {
-                    $envKey = strtoupper($section . '_' . $key);
-                    if (!isset($_ENV[$envKey])) {
-                        $_ENV[$envKey] = $value;
-                    }
-                }
-            } else {
-                if (!isset($_ENV[$section])) {
-                    $_ENV[$section] = $values;
+            foreach ((array) $values as $key => $value) {
+                $envKey = strtoupper($section . '_' . $key);
+                if (!isset($_ENV[$envKey])) {
+                    $_ENV[$envKey] = $value;
                 }
             }
         }
+        return true;
     }
 
     /**
-     * Checks if a string ends with a specified substring.
+     * Retrieve an environment variable by key.
+     * If the key is null, the entire $_ENV array is returned.
+     * Provides a default value if the key does not exist.
      *
-     * @param string $haystack The string to check.
-     * @param string $needle The substring to look for.
-     * @return bool True if `$haystack` ends with `$needle`, false otherwise.
-     */
-    private function endsWith($haystack, $needle)
-    {
-        return substr($haystack, -strlen($needle)) === $needle;
-    }
-
-    /**
-     * Retrieves an environment variable's value or all variables if no key is provided.
-     *
-     * @param string|null $key The environment variable key.
+     * @param string|null $key The key of the environment variable.
      * @param mixed $default The default value if the key does not exist.
-     * @return mixed The value of the environment variable or `$default`.
+     * @return mixed The value of the environment variable or the default value(`$default`).
      */
     public static function env($key = null, $default = null)
     {
@@ -183,6 +115,37 @@ class TinyEnv
             return $_ENV;
         }
         return isset($_ENV[$key]) ? $_ENV[$key] : $default;
+    }
+
+    /**
+     * Set or update an environment variable dynamically and persist it in available files.
+     * Handles .env formats, creating files if necessary.
+     * Ensure proper file permissions when writing to files.
+     *
+     * @param string $key The key of the environment variable to set.
+     * @param mixed $value The value to set for the environment variable.
+     * @return void
+     */
+    public static function setenv($key, $value = null)
+    {
+        $key = trim($key);
+        $value = trim($value);
+
+        $_ENV[$key] = $value;
+
+        $envFile = '.env';
+        if (file_exists($envFile) && is_writable($envFile)) {
+            $content = file_get_contents($envFile);
+            $pattern = '/^' . preg_quote($key, '/') . '=.*$/m';
+
+            if (preg_match($pattern, $content)) {
+                $content = preg_replace($pattern, "$key=$value", $content);
+            } else {
+                $content .= "\n$key=$value";
+            }
+
+            file_put_contents($envFile, $content, LOCK_EX);
+        }
     }
 }
 
@@ -196,5 +159,18 @@ if (!function_exists('env')) {
     function env($key = null, $default = null)
     {
         return TinyEnv::env($key, $default);
+    }
+}
+
+if (!function_exists('setenv')) {
+    /**
+     * setenv() function to set or update environment variables from .env (will create if not exist).
+     * @param mixed $key The environment variable key to set.
+     * @param mixed $value The value to set for the environment variable.
+     * @return void
+     */
+    function setenv($key, $value = null)
+    {
+        TinyEnv::setenv($key, $value);
     }
 }

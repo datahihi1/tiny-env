@@ -1,64 +1,26 @@
 # TinyEnv
 A simple environment loader for PHP applications, used for small projects that don't use a lot of resources but still ensure stable performance. It's can load environment variable in .env, .env.example, .ini
 
-## Installation and Usage
+### Install and Setup:
 
-#### With PHP pure project:
-
-##### Install:
+##### With PHP pure project:
 
 For pure PHP projects, TinyEnv should be set to the following structure:
 
-![Structure](https://datahihi1.id.vn/Screenshot_2024-12-20_225512.png)
+![Structure](https://datahihi1.id.vn/uploads/Screenshot_2025-01-18_121003.png)
 
 NOTE: index.php is a small example to show how the package works.
 
-##### Usage:
-
-To use it (at index.php), requires the library's autoloader file (loader.php):
+To use `TinyEnv`, requires the library's loader file and create a new object of the library class to load it:
 
 ```php
-require 'package/TinyEnv/loader.php';
-```
-
-And next, we need to create a new object of the library class and load it:
-
-```php
+require 'package/tiny-env/loader.php';
 use Datahihi1\TinyEnv\TinyEnv;
-$env = new TinyEnv(__DIR__); // only load .env at project/
+$env = new TinyEnv(__DIR__);
 $env->load();
 ```
-or:
 
-```php
-use Datahihi1\TinyEnv\TinyEnv;
-$env = new TinyEnv([__DIR__,__DIR__.'/dir2']);
-$env->load();
-```
-Note: It will load .env at project/ and project/dir2/ simultaneously, but will prioritize getting environment variables at the last directory (project/dir2/ ).
-
-Here are some example environment variables:
-
-```env
-NAME=TinyEnv
-VERSION=1.0.0
-```
-
-To get environment variables, use the env() function:
-
-```php
-$env = env('NAME');
-print_r($env); // Result: TinyEnv
-```
-
-If an environment variable is not declared, a default value can be assigned instead:
-
-```php
-$env = env('TESTER','Datahihi1');
-print_r($env); // Result: Datahihi1
-```
-
-#### With project use Composer:
+##### With project use Composer:
 
 Installation is super-easy with [Composer](https://getcomposer.org/):
 
@@ -74,31 +36,57 @@ or add it by hand to your `composer.json` file:
     }
 ```
 
-##### Usage:
-
-Composer autoload requirements:
+Composer autoload requirements and create a new object of the library class and load it:
 
 ```php
 require 'vendor/autoload.php';
-```
-
-And need to create a new object of the library class and load it:
-
-```php
 use Datahihi1\TinyEnv\TinyEnv;
-$env = new TinyEnv(__DIR__); // only load .env at project/
+$env = new TinyEnv(__DIR__);
 $env->load();
 ```
+NOTE: You can also load only the .env file with `$onlyEnvFile` set to ``true``
 
-But now to use the env() function, you need to point directly at the library function:
-
-###### With PHP 5.4 < 5.6 :
 ```php
-$env = Datahihi1\TinyEnv\env('HOST','localhost');
+$env = new TinyEnv(__DIR__,true); // load only .env
 ```
 
-###### With PHP 5.6 above :
+### Usage:
+
+###### `env()`:
+
+Here are some example environment variables:
+
+```env
+NAME=TinyEnv
+VERSION=1.1.0
+```
+
+To get environment variables, use the `env()` function:
+
 ```php
 use function Datahihi1\TinyEnv\env;
-$env = env('HOST','localhost');
+$env = env('NAME');
+print_r($env); // Result: TinyEnv
+```
+
+If an environment variable is not declared, a default value can be assigned instead:
+
+```php
+use function Datahihi1\TinyEnv\env;
+$env = env('TESTER','Datahihi1');
+print_r($env); // Result: Datahihi1
+```
+**Hint**: You can also use the env() function to get all existing environment variables:
+
+```php
+print_r(env());
+```
+
+###### `setenv()`:
+
+To set or update an environment variable, use the `setenv()` function:
+
+```php
+use function Datahihi1\TinyEnv\setenv;
+setenv('KEY','ffyflaslj'); // will set or update environment variable in .env file
 ```
