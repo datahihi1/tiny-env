@@ -1,5 +1,5 @@
 # TinyEnv
-A simple environment loader for PHP applications, used for small projects that don't use a lot of resources but still ensure stable performance. It's can load environment variable in .env, .env.example, .ini
+A simple environment variable loader for PHP applications, used for small projects that don't use a lot of resources but still ensure stable performance. It's can load environment variable in .env, .env.example, .ini
 
 ### Install and Setup:
 

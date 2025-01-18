@@ -3,7 +3,7 @@
 namespace Datahihi1\TinyEnv;
 
 /**
- * TinyEnv is a simple environment loader for PHP applications
+ * TinyEnv is a simple environment variable loader for PHP applications
  */
 class TinyEnv
 {
