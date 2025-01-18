@@ -31,9 +31,9 @@ $ composer require datahihi1/tiny-env
 or add it by hand to your `composer.json` file:
 
 ```json
-    "require": {
-      "datahihi1/tiny-env": "^1.0.0"
-    }
+  "require": {
+      "datahihi1/tiny-env": "^1.1"
+  }
 ```
 
 Composer autoload requirements and create a new object of the library class and load it:
