@@ -1,5 +1,10 @@
 # Change Log
 
+## [1.1.1] - 2025-01-19
+   
+### Changed
+- Fix ``.env`` file not being created when it doesn't exist
+
 ## [1.1.0] - 2025-01-17
  
 ### Added

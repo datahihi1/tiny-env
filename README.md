@@ -32,7 +32,7 @@ or add it by hand to your `composer.json` file:
 
 ```json
   "require": {
-      "datahihi1/tiny-env": "^1.1"
+      "datahihi1/tiny-env": "^1.1.1"
   }
 ```
 
