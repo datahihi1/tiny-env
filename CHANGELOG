@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.1.2] - 2025-01-23
+
+### Changed
+- Add `$convertToConst` variable at load() method. When `$convertToConst` is set to true, it will convert environment variable into constant and can replace using `env()` function in case of hard to control code
+- Add the `env.php` in the library which automatically receives constants converted from environment variables
+
 ## [1.1.1] - 2025-01-19
    
 ### Changed

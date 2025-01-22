@@ -32,7 +32,7 @@ or add it by hand to your `composer.json` file:
 
 ```json
   "require": {
-      "datahihi1/tiny-env": "^1.1.1"
+      "datahihi1/tiny-env": "^1.1.2"
   }
 ```
 
@@ -44,11 +44,6 @@ use Datahihi1\TinyEnv\TinyEnv;
 $env = new TinyEnv(__DIR__);
 $env->load();
 ```
-NOTE: You can also load only the .env file with `$onlyEnvFile` set to ``true``
-
-```php
-$env = new TinyEnv(__DIR__,true); // load only .env
-```
 
 ### Usage:
 
@@ -58,7 +53,7 @@ Here are some example environment variables:
 
 ```env
 NAME=TinyEnv
-VERSION=1.1.0
+VERSION=1.1.2
 ```
 
 To get environment variables, use the `env()` function:
@@ -89,4 +84,26 @@ To set or update an environment variable, use the `setenv()` function:
 ```php
 use function Datahihi1\TinyEnv\setenv;
 setenv('KEY','ffyflaslj'); // will set or update environment variable in .env file
+```
+
+###### `TinyEnv(__DIR__,true)` :
+
+You can also load only the .env file with `$onlyEnvFile` set to ``true``
+
+```php
+$env = new TinyEnv(__DIR__, true);
+```
+
+###### `load(convertToConst: true)`:
+
+When the `$convertToConst` set to true, it also defines these environment variables as PHP constants and writes them to the library's `env.php` file.
+
+```php
+$env->load(convertToConst: true);
+// when get const has been converted from environment variable
+echo NAME;
+// look like
+echo env('name');
+// and
+echo $_ENV['NAME'];
 ```
