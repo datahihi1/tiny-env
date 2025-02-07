@@ -1,0 +1,21 @@
+{
+    "name": "datahihi1/tiny-env",
+    "description": "A simple environment variable loader for PHP applications",
+    "type": "library",
+    "version": "1.0.0",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Datahihi1\\TinyEnv\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "datahihi1",
+            "email": "datahihi1100@gmail.com"
+        }
+    ],
+    "require": {
+      "php": ">=7.0"
+    }
+}
