@@ -146,10 +146,8 @@ class TinyEnv
 
             file_put_contents($envFile, $content, LOCK_EX);
         } elseif (!file_exists($envFile) && is_writable(dirname($envFile))) {
-            $content = pathinfo($envFile, PATHINFO_EXTENSION) === 'env' ? "$key = $value\n" : "$key=$value\n";
-            if (file_put_contents($envFile, $content, LOCK_EX) !== false) {
-                exit();
-            }
+            $content = "$key=$value\n";
+            file_put_contents($envFile, $content, LOCK_EX);
         }
     }
 }
