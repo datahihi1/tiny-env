@@ -14,10 +14,14 @@ class TinyEnv
      * Constructor: Initializes the TinyEnv instance with the given root directories.
      *
      * @param string|array $rootDirs The root directory to load files from.
+     * @param bool $fastLoad Whether to load the environment variables immediately.
      */
-    public function __construct($rootDirs)
+    public function __construct($rootDirs, $fastLoad = false)
     {
         $this->rootDirs = is_array($rootDirs) ? $rootDirs : array($rootDirs);
+        if ($fastLoad) {
+            $this->load();
+        }
     }
 
     /**
@@ -32,6 +36,7 @@ class TinyEnv
         foreach ($this->rootDirs as $dir) {
             $this->loadEnvFile($dir . DIRECTORY_SEPARATOR . '.env');
         }
+
     }
 
     /**
