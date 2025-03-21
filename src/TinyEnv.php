@@ -8,6 +8,8 @@ namespace Datahihi1\TinyEnv;
 class TinyEnv
 {
     protected $rootDirs;
+    protected static $cache = [];
+
     /**
      * Constructor: Initializes the TinyEnv instance with the given root directories.
      *
@@ -22,10 +24,7 @@ class TinyEnv
      * Main loader: Loads environment variables from configuration files.
      * This method scans the specified root directories for `.env` files,
      * and loads their contents into the `$_ENV` array.
-     * If `convertToConst` is true, it also defines these variables as PHP constants 
-     * and writes them to `env.php`.
      *
-     * @param bool $convertToConst Whether to convert environment variables to constants.
      * @return void
      */
     public function load()
@@ -39,13 +38,11 @@ class TinyEnv
      * Loads environment variables from a .env file into the $_ENV array.
      * This method reads the specified .env file, skipping comments and invalid lines,
      * and stores the key-value pairs as environment variables in the $_ENV array.
-     * If `convertToConst` is true, it also defines these variables as PHP constants.
      *
      * @param string $file Path to the .env file.
-     * @param bool $convertToConst Whether to convert environment variables to constants.
      * @return bool True if the file was successfully loaded, false otherwise.
      */
-    protected function loadEnvFile($file, $convertToConst = false)
+    protected function loadEnvFile($file)
     {
         if (!is_file($file) || !is_readable($file)) {
             return false;
@@ -64,10 +61,7 @@ class TinyEnv
             $value = trim($value, " \t\n\r\0\x0B\"");
 
             $_ENV[$key] = $value;
-
-            if ($convertToConst && !defined($key)) {
-                define($key, $value);
-            }
+            self::$cache[$key] = $value;
         }
         return true;
     }
@@ -86,7 +80,7 @@ class TinyEnv
         if ($key === null) {
             return $_ENV;
         }
-        return $_ENV[$key] ?? $default;
+        return self::$cache[$key] ?? $_ENV[$key] ?? $default;
     }
 
     /**
@@ -104,6 +98,7 @@ class TinyEnv
         $value = trim($value);
 
         $_ENV[$key] = $value;
+        self::$cache[$key] = $value;
 
         $envFile = '.env';
 

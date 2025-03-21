@@ -14,7 +14,7 @@ or add it by hand to your `composer.json` file:
 
 ```json
   "require": {
-      "datahihi1/tiny-env": "^1.0.1"
+      "datahihi1/tiny-env": "^1.0.2"
   }
 ```
 
@@ -27,12 +27,6 @@ $env = new TinyEnv(__DIR__);
 $env->load();
 ```
 
-**Hint**: When the `$convertToConst` set to true, it also defines these environment variables as PHP constants and writes them to the library's `env.php` file.
-
-```php
-$env->load(convertToConst: true);
-```
-
 ### Usage
 
 ###### `env()`
@@ -41,7 +35,7 @@ Here are some example environment variables:
 
 ```env
 NAME=TinyEnv
-VERSION=1.0.1
+VERSION=1.0.2
 ```
 
 To get environment variables, use the `env()` function:
