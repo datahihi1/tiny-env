@@ -36,7 +36,19 @@ class TinyEnv
         foreach ($this->rootDirs as $dir) {
             $this->loadEnvFile($dir . DIRECTORY_SEPARATOR . '.env');
         }
+    }
 
+    /**
+     * Unloads environment variables by clearing the $_ENV array and cache.
+     *
+     * @return void
+     */
+    public function unload()
+    {
+        foreach (self::$cache as $key => $value) {
+            unset($_ENV[$key]);
+        }
+        self::$cache = [];
     }
 
     /**

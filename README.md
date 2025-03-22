@@ -27,6 +27,14 @@ $env = new TinyEnv(__DIR__);
 $env->load();
 ```
 
+Or you can use the fastLoad option in the constructor to load the environment variable immediately.
+
+```php
+require 'vendor/autoload.php';
+use Datahihi1\TinyEnv\TinyEnv;
+$env = new TinyEnv(__DIR__,true);
+```
+
 ### Usage
 
 ###### `env()`
@@ -67,4 +75,14 @@ To set or update an environment variable, use the `setenv()` function:
 ```php
 use function Datahihi1\TinyEnv\setenv;
 setenv('KEY','demo'); // will set or update environment variable in .env file
+```
+
+###### `unload()`
+
+Unloads environment variables by clearing the $_ENV array and cache.
+
+```php
+print_r(env()); // Output is variable in .env file.
+$env->unload();
+print_r(env()); // Nothing output. Variable has been cleared
 ```
