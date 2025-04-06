@@ -14,7 +14,7 @@ or add it by hand to your `composer.json` file:
 
 ```json
   "require": {
-      "datahihi1/tiny-env": "^1.0.2"
+      "datahihi1/tiny-env": "^1.0.3"
   }
 ```
 
@@ -85,4 +85,9 @@ Unloads environment variables by clearing the $_ENV array and cache.
 print_r(env()); // Output is variable in .env file.
 $env->unload();
 print_r(env()); // Nothing output. Variable has been cleared
+```
+
+Or you can refresh the environment variable right away with refresh(): 
+```php
+$env->refresh();
 ```

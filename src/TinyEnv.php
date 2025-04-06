@@ -2,6 +2,8 @@
 
 namespace Datahihi1\TinyEnv;
 
+use Exception;
+
 /**
  * TinyEnv is a simple environment variable loader for PHP applications
  */
@@ -9,6 +11,7 @@ class TinyEnv
 {
     protected $rootDirs;
     protected static $cache = [];
+    protected static $allowFileWrites = true; // Có thể sửa đổi khi được phép ghi vào tệp
 
     /**
      * Constructor: Initializes the TinyEnv instance with the given root directories.
@@ -22,6 +25,17 @@ class TinyEnv
         if ($fastLoad) {
             $this->load();
         }
+    }
+
+    /**
+     * Enable or disable file writing globally.
+     *
+     * @param bool $allow Whether to allow file writing.
+     * @return void
+     */
+    public static function setAllowFileWrites($allow)
+    {
+        self::$allowFileWrites = $allow;
     }
 
     /**
@@ -52,17 +66,36 @@ class TinyEnv
     }
 
     /**
+     * Refreshes the environment variables by reloading the .env files and updating the cache.
+     *
+     * @return void
+     */
+    public function refresh()
+    {
+        // Dọn dẹp cache và $_ENV
+        $this->unload();
+
+        // Tải lại các biến môi trường từ các tệp .env
+        $this->load();
+    }
+
+    /**
      * Loads environment variables from a .env file into the $_ENV array.
      * This method reads the specified .env file, skipping comments and invalid lines,
      * and stores the key-value pairs as environment variables in the $_ENV array.
      *
      * @param string $file Path to the .env file.
      * @return bool True if the file was successfully loaded, false otherwise.
+     * @throws Exception If the file is not found or not readable.
      */
     protected function loadEnvFile($file)
     {
-        if (!is_file($file) || !is_readable($file)) {
-            return false;
+        if (!is_file($file)) {
+            throw new Exception("Environment file not found: $file");
+        }
+
+        if (!is_readable($file)) {
+            throw new Exception("Environment file is not readable: $file");
         }
 
         $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -108,42 +141,57 @@ class TinyEnv
      * @param string $key The key of the environment variable to set.
      * @param mixed $value The value to set for the environment variable.
      * @return void
+     * @throws Exception If the file is not writable or cannot be created.
      */
     public static function setenv($key, $value = null)
     {
         $key = trim($key);
         $value = trim($value);
 
+        // Validate the key
+        if (!preg_match('/^[A-Z0-9_]+$/', $key)) {
+            throw new Exception("Invalid environment variable key: $key");
+        }
+
         $_ENV[$key] = $value;
         self::$cache[$key] = $value;
 
+        if (!self::$allowFileWrites) {
+            return; // Bỏ qua việc ghi vào tệp nếu không được phép
+        }
+
         $envFile = '.env';
 
-        if (file_exists($envFile) && is_writable($envFile)) {
-            $content = file_get_contents($envFile);
-            $pattern = '/^' . preg_quote($key, '/') . '=.*$/m';
+        try {
+            if (file_exists($envFile)) {
+                if (!is_writable($envFile)) {
+                    throw new Exception("Environment file is not writable: $envFile");
+                }
 
-            if (preg_match($pattern, $content)) {
-                $content = preg_replace($pattern, "$key=$value", $content);
+                $content = file_get_contents($envFile);
+                $pattern = '/^' . preg_quote($key, '/') . '=.*$/m';
+
+                if (preg_match($pattern, $content)) {
+                    $content = preg_replace($pattern, "$key=$value", $content);
+                } else {
+                    $content .= "\n$key=$value";
+                }
+
+                file_put_contents($envFile, $content, LOCK_EX);
+            } elseif (is_writable(dirname($envFile))) {
+                $content = "$key=$value\n";
+                file_put_contents($envFile, $content, LOCK_EX);
             } else {
-                $content .= "\n$key=$value";
+                throw new Exception("Cannot create environment file: $envFile");
             }
-
-            file_put_contents($envFile, $content, LOCK_EX);
-        } elseif (!file_exists($envFile) && is_writable(dirname($envFile))) {
-            $content = "$key=$value\n";
-            file_put_contents($envFile, $content, LOCK_EX);
+        } catch (Exception $e) {
+            error_log($e->getMessage());
+            throw $e;
         }
     }
 }
 
 if (!function_exists('env')) {
-    /**
-     * env() function for accessing environment variables from .env files.
-     * @param string|null $key The environment variable key.
-     * @param mixed $default The default value if the key does not exist.
-     * @return mixed The value of the environment variable or $default.
-     */
     function env($key = null, $default = null)
     {
         return TinyEnv::env($key, $default);
@@ -151,12 +199,6 @@ if (!function_exists('env')) {
 }
 
 if (!function_exists('setenv')) {
-    /**
-     * setenv() function to set or update environment variables from .env (will create if not exist).
-     * @param mixed $key The environment variable key to set.
-     * @param mixed $value The value to set for the environment variable.
-     * @return void
-     */
     function setenv($key, $value = null)
     {
         TinyEnv::setenv($key, $value);
