@@ -11,19 +11,22 @@ class TinyEnv
 {
     protected $rootDirs;
     protected static $cache = [];
-    protected static $allowFileWrites = true; // Có thể sửa đổi khi được phép ghi vào tệp
+    protected static $allowFileWrites = true;
 
     /**
      * Constructor: Initializes the TinyEnv instance with the given root directories.
      *
      * @param string|array $rootDirs The root directory to load files from.
      * @param bool $fastLoad Whether to load the environment variables immediately.
+     * @param array|null $lazyPrefixes Array of prefixes for lazy loading.
      */
-    public function __construct($rootDirs, $fastLoad = false)
+    public function __construct($rootDirs, $fastLoad = false, $lazyPrefixes = null)
     {
         $this->rootDirs = is_array($rootDirs) ? $rootDirs : array($rootDirs);
-        if ($fastLoad) {
+        if ($fastLoad && $lazyPrefixes === null) {
             $this->load();
+        } elseif ($lazyPrefixes !== null) {
+            $this->lazy($lazyPrefixes);
         }
     }
 
@@ -43,19 +46,65 @@ class TinyEnv
      * This method scans the specified root directories for `.env` files,
      * and loads their contents into the `$_ENV` array.
      *
-     * @return void
+     * @return self For method chaining
      */
     public function load()
     {
         foreach ($this->rootDirs as $dir) {
             $this->loadEnvFile($dir . DIRECTORY_SEPARATOR . '.env');
         }
+        return $this;
+    }
+
+    /**
+     * Lazy load specific environment variables based on prefixes.
+     *
+     * @param array $prefixes Array of prefixes to load (e.g., ['DB', 'KEY'])
+     * @param bool $reset If true, clears existing variables before loading
+     * @return self For method chaining
+     * @throws Exception If file operations fail
+     */
+    public function lazy(array $prefixes, $reset = false)
+    {
+        if ($reset) {
+            $this->unload();
+        }
+
+        foreach ($this->rootDirs as $dir) {
+            $file = $dir . DIRECTORY_SEPARATOR . '.env';
+            if (!is_file($file)) {
+                throw new Exception("Environment file not found: $file");
+            }
+            if (!is_readable($file)) {
+                throw new Exception("Environment file is not readable: $file");
+            }
+
+            $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            foreach ($lines as $line) {
+                $line = trim($line);
+                if (strpos($line, '#') === 0 || strpos($line, '=') === false) {
+                    continue;
+                }
+                [$key, $value] = explode('=', $line, 2);
+                $key = trim($key);
+                $value = trim($value, " \t\n\r\0\x0B\"");
+
+                foreach ($prefixes as $prefix) {
+                    if (strpos($key, $prefix) === 0) {
+                        $_ENV[$key] = $value;
+                        self::$cache[$key] = $value;
+                        break;
+                    }
+                }
+            }
+        }
+        return $this;
     }
 
     /**
      * Unloads environment variables by clearing the $_ENV array and cache.
      *
-     * @return void
+     * @return self For method chaining
      */
     public function unload()
     {
@@ -63,20 +112,19 @@ class TinyEnv
             unset($_ENV[$key]);
         }
         self::$cache = [];
+        return $this;
     }
 
     /**
      * Refreshes the environment variables by reloading the .env files and updating the cache.
      *
-     * @return void
+     * @return self For method chaining
      */
     public function refresh()
     {
-        // Dọn dẹp cache và $_ENV
         $this->unload();
-
-        // Tải lại các biến môi trường từ các tệp .env
         $this->load();
+        return $this;
     }
 
     /**
@@ -93,7 +141,6 @@ class TinyEnv
         if (!is_file($file)) {
             throw new Exception("Environment file not found: $file");
         }
-
         if (!is_readable($file)) {
             throw new Exception("Environment file is not readable: $file");
         }
@@ -101,15 +148,12 @@ class TinyEnv
         $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         foreach ($lines as $line) {
             $line = trim($line);
-
             if (strpos($line, '#') === 0 || strpos($line, '=') === false) {
                 continue;
             }
-
             [$key, $value] = explode('=', $line, 2);
             $key = trim($key);
             $value = trim($value, " \t\n\r\0\x0B\"");
-
             $_ENV[$key] = $value;
             self::$cache[$key] = $value;
         }
@@ -146,40 +190,36 @@ class TinyEnv
     public static function setenv($key, $value = null)
     {
         $key = trim($key);
-        $value = trim($value);
+        $originalValue = $value;
+        $fileValue = is_bool($value) ? ($value ? 'true' : 'false') : trim((string) $value);
 
-        // Validate the key
         if (!preg_match('/^[A-Z0-9_]+$/', $key)) {
             throw new Exception("Invalid environment variable key: $key");
         }
 
-        $_ENV[$key] = $value;
-        self::$cache[$key] = $value;
+        $_ENV[$key] = $originalValue;
+        self::$cache[$key] = $originalValue;
 
         if (!self::$allowFileWrites) {
-            return; // Bỏ qua việc ghi vào tệp nếu không được phép
+            return;
         }
 
         $envFile = '.env';
-
         try {
             if (file_exists($envFile)) {
                 if (!is_writable($envFile)) {
                     throw new Exception("Environment file is not writable: $envFile");
                 }
-
                 $content = file_get_contents($envFile);
                 $pattern = '/^' . preg_quote($key, '/') . '=.*$/m';
-
                 if (preg_match($pattern, $content)) {
-                    $content = preg_replace($pattern, "$key=$value", $content);
+                    $content = preg_replace($pattern, "$key=$fileValue", $content);
                 } else {
-                    $content .= "\n$key=$value";
+                    $content .= "\n$key=$fileValue";
                 }
-
                 file_put_contents($envFile, $content, LOCK_EX);
             } elseif (is_writable(dirname($envFile))) {
-                $content = "$key=$value\n";
+                $content = "$key=$fileValue\n";
                 file_put_contents($envFile, $content, LOCK_EX);
             } else {
                 throw new Exception("Cannot create environment file: $envFile");
@@ -187,6 +227,57 @@ class TinyEnv
         } catch (Exception $e) {
             error_log($e->getMessage());
             throw $e;
+        }
+    }
+    /**
+     * Validate environment variables against specified rules.
+     *
+     * @param array $rules Array of rules, e.g., ['DB_PORT' => 'required|int']
+     * @throws Exception If validation fails
+     */
+    public static function validate(array $rules)
+    {
+        foreach ($rules as $key => $rule) {
+            $value = self::env($key);
+            $ruleParts = is_array($rule) ? $rule : explode('|', $rule);
+
+            foreach ($ruleParts as $part) {
+                switch ($part) {
+                    case 'required':
+                        if ($value === null || $value === '') {
+                            throw new Exception("Environment variable '$key' is required but missing or empty");
+                        }
+                        break;
+                    case 'int':
+                        if ($value !== null) {
+                            if (is_int($value)) {
+                            } elseif (is_numeric($value) && (int) $value == $value) {
+                                $_ENV[$key] = (int) $value;
+                                self::$cache[$key] = (int) $value;
+                            } else {
+                                throw new Exception("Environment variable '$key' must be an integer, got '" . var_export($value, true) . "'");
+                            }
+                        }
+                        break;
+                    case 'bool':
+                        if ($value !== null) {
+                            if (is_bool($value)) {
+                            } elseif (in_array(strtolower((string) $value), ['true', 'false', '1', '0'])) {
+                                $boolValue = in_array(strtolower((string) $value), ['true', '1']);
+                                $_ENV[$key] = $boolValue;
+                                self::$cache[$key] = $boolValue;
+                            } else {
+                                throw new Exception("Environment variable '$key' must be a boolean, got '" . var_export($value, true) . "'");
+                            }
+                        }
+                        break;
+                    case 'string':
+                        if ($value !== null && !is_string($value)) {
+                            throw new Exception("Environment variable '$key' must be a string, got '" . var_export($value, true) . "'");
+                        }
+                        break;
+                }
+            }
         }
     }
 }
