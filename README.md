@@ -77,7 +77,6 @@ DB_HOST=localhost
 Use the global `env()` function to get environment variables:
 
 ```php
-use function Datahihi1\TinyEnv\env;
 
 // Get a specific variable
 echo env('NAME'); // Output: TinyEnv
@@ -94,7 +93,6 @@ print_r(env());
 Use `setenv()` to dynamically set or update environment variables. If file writing is enabled (default), it also updates the `.env` file:
 
 ```php
-use function Datahihi1\TinyEnv\setenv;
 
 setenv('KEY', 'demo'); // Sets KEY=demo in $_ENV and .env file
 echo env('KEY'); // Output: demo
@@ -102,12 +100,12 @@ echo env('KEY'); // Output: demo
 
 **Note**: To disable file writing, use `TinyEnv::setAllowFileWrites(false)`.
 
-#### 3. `validate()` - Validate Variables
+#### 3. `validate_env()` - Validate Variables
 
 Ensure variables meet specific rules (e.g., `required`, `int`, `bool`, `string`):
 
 ```php
-TinyEnv::validate([
+validate_env([
     'VERSION' => 'required|string',
     'DB_PORT' => 'int' // Throws exception if DB_PORT is not an integer
 ]);
@@ -151,8 +149,6 @@ DB_PORT=3306
 ```php
 require 'vendor/autoload.php';
 use Datahihi1\TinyEnv\TinyEnv;
-use function Datahihi1\TinyEnv\env;
-use function Datahihi1\TinyEnv\setenv;
 
 // Initialize and load
 $env = new TinyEnv(__DIR__);
@@ -166,7 +162,7 @@ echo env('NOT_FOUND', 'Default'); // Default
 setenv('APP_DEBUG', true);
 
 // Validate
-TinyEnv::validate(['APP_DEBUG' => 'bool']);
+validate_env(['APP_DEBUG' => 'bool']);
 
 // Refresh
 $env->refresh();

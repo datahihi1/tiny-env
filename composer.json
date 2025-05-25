@@ -6,7 +6,10 @@
     "autoload": {
         "psr-4": {
             "Datahihi1\\TinyEnv\\": "src/"
-        }
+        },
+        "files": [
+            "src/helpers.php"
+        ]
     },
     "authors": [
         {

@@ -67,7 +67,7 @@ class TinyEnv
      *
      * @param string[] $prefixes Array of prefixes to load (e.g., ['DB', 'KEY'])
      * @param bool $reset If true, clears existing variables before loading
-     * @return self For method chaining
+     * @return self
      * @throws Exception If file operations fail
      */
     public function lazy(array $prefixes, bool $reset = false): self
@@ -114,7 +114,7 @@ class TinyEnv
     /**
      * Unloads environment variables by clearing the $_ENV array and cache.
      *
-     * @return self For method chaining
+     * @return self
      */
     public function unload(): self
     {
@@ -127,8 +127,7 @@ class TinyEnv
 
     /**
      * Refreshes the environment variables by reloading the .env files and updating the cache.
-     *
-     * @return self For method chaining
+     * @return self
      */
     public function refresh(): self
     {

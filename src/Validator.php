@@ -12,7 +12,7 @@ final class Validator
     /**
      * Validate environment variables against specified rules.
      *
-     * @param array<string, string|string[]> $rules Array of rules, e.g., ['DB_PORT' => 'required|int|min:1']
+     * @param array<string, string|string[]> $rules Array of rules, e.g., ['DB_PORT' => 'required|int']
      * @throws Exception If validation fails
      * @return void
      */
@@ -35,9 +35,9 @@ final class Validator
                         break;
 
                     case 'int':
+                    case 'integer':
                         if ($value !== null) {
                             if (is_int($value)) {
-                                // OK
                             } elseif (is_numeric($value) && (int) $value == $value) {
                                 $intValue = (int) $value;
                                 $_ENV[$key] = $intValue;
@@ -50,9 +50,9 @@ final class Validator
                         break;
 
                     case 'bool':
+                    case 'boolean':
                         if ($value !== null) {
                             if (is_bool($value)) {
-                                // OK
                             } elseif (is_scalar($value) && in_array(strtolower((string) $value), ['true', 'false', '1', '0'])) {
                                 $boolValue = in_array(strtolower((string) $value), ['true', '1']);
                                 $_ENV[$key] = $boolValue;
