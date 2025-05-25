@@ -100,7 +100,7 @@ class TinyEnv
                 $value = trim($value, " \t\n\r\0\x0B\"");
 
                 foreach ($prefixes as $prefix) {
-                    if (strpos($key, $prefix) === 0) {
+                    if (strpos($key, $prefix) !== false) {
                         $_ENV[$key] = $value;
                         self::$cache[$key] = $value;
                         break;
