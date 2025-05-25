@@ -8,7 +8,7 @@
             "Datahihi1\\TinyEnv\\": "src/"
         },
         "files": [
-            "src/helpers.php"
+            "src/helper/helpers.php"
         ]
     },
     "authors": [
