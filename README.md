@@ -26,7 +26,7 @@ Or manually add it to your `composer.json`:
 
 Run `composer install` or `composer update` to download the package.
 
-#### Basic Setup
+#### 1. `load()` - Basic Setup
 
 After installing, include Composer's autoloader, create a `TinyEnv` instance, and load the environment variables:
 
@@ -39,7 +39,7 @@ $env = new TinyEnv(__DIR__);
 $env->load();
 ```
 
-#### Fast Load Option
+#### 2. Fast Load Option
 
 Use the `fastLoad` option in the constructor to load variables immediately:
 
@@ -50,7 +50,7 @@ use Datahihi1\TinyEnv\TinyEnv;
 // Load immediately upon instantiation
 $env = new TinyEnv(__DIR__, true);
 ```
-#### Lazy Load Option
+#### 3. `lazy()` - Lazy Load Option
 
 Load only variables matching specific prefixes:
 
@@ -58,6 +58,22 @@ Load only variables matching specific prefixes:
 $env->lazy(['DB']); // Loads only variables starting with DB_
 echo env('DB_HOST'); // Output: localhost
 echo env('NAME', 'N/A'); // Output: N/A (NAME not loaded)
+```
+
+#### 4. `only()` - Load Only Specific Variables
+
+Load only the specified environment variables by key (single or array):
+
+```php
+// Load only DB_HOST
+$env->only('DB_HOST');
+
+// Load only DB_HOST and DB_PORT
+$env->only(['DB_HOST', 'DB_PORT']);
+
+// After calling only(), only those variables are available in env()
+echo env('DB_HOST'); // Output: localhost (if present in .env)
+echo env('DB_PORT'); // Output: 3306 (if present in .env)
 ```
 
 ---

@@ -1,12 +1,13 @@
 <?php
 
-
 use Datahihi1\TinyEnv\TinyEnv;
 
 if (!function_exists('env')) {
     /**
      * Get the value of an environment variable by key.
+     * 
      * If the key is null, the entire $_ENV array is returned.
+     * 
      * Provides a default value if the key does not exist.
      *
      * @param string|null $key The key of the environment variable.
@@ -22,7 +23,9 @@ if (!function_exists('env')) {
 if (!function_exists('setenv')) {
     /**
      * Set or update an environment variable dynamically and persist it in available files.
+     * 
      * Handles .env formats, creating files if necessary.
+     * 
      * Ensure proper file permissions when writing to files.
      *
      * @param string $key The key of the environment variable to set.
@@ -36,9 +39,10 @@ if (!function_exists('setenv')) {
     }
 }
 
-if(!function_exists('validate')) {
+if(!function_exists('validate_env')) {
     /**
      * Validate the environment variables using the provided rules.
+     * 
      * If validation fails, an exception is thrown with the error messages.
      *
      * @param array<string, array<string>|string> $rules The validation rules.
