@@ -19,7 +19,7 @@ Or manually add it to your `composer.json`:
 ```json
 {
     "require": {
-        "datahihi1/tiny-env": "^1.0.5"
+        "datahihi1/tiny-env": "^1.0.6"
     }
 }
 ```
@@ -84,7 +84,7 @@ echo env('DB_PORT'); // Output: 3306 (if present in .env)
 
 ```
 NAME=TinyEnv
-VERSION=1.0.5
+VERSION=1.0.6
 DB_HOST=localhost
 ```
 
@@ -155,7 +155,7 @@ Create a `.env` file in your project root:
 
 ```
 NAME=TinyEnv
-VERSION=1.0.5
+VERSION=1.0.6
 DB_HOST=localhost
 DB_PORT=3306
 ```
