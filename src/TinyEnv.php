@@ -3,7 +3,6 @@
 namespace Datahihi1\TinyEnv;
 
 use Exception;
-use Datahihi1\TinyEnv\Validator;
 
 /**
  * TinyEnv is a simple environment variable loader for PHP applications
@@ -23,6 +22,8 @@ class TinyEnv
      * @param string|string[] $rootDirs The root directory to load files from.
      * @param bool $fastLoad Whether to load the environment variables immediately.
      * @param array<int, string>|null $lazyPrefixes Array of prefixes for lazy loading.
+     * 
+     * @throws Exception If the .env file cannot be read.
      */
     public function __construct($rootDirs, bool $fastLoad = false, ?array $lazyPrefixes = null)
     {
@@ -59,8 +60,10 @@ class TinyEnv
 
     /**
      * Load environment variables lazily based on specified prefixes.
-     * This method will only load variables that contain the specified prefixes.
-     * If reset is true, it will unload existing variables before loading new ones.
+     * 
+     * This method loads only variables with the specified prefixes.
+     * 
+     * If reset is true, existing variables are cleared before loading new ones.
      *
      * @param array<int, string> $prefixes Array of prefixes to filter environment variables.
      * @param bool $reset Whether to reset the existing environment variables before loading.
@@ -82,7 +85,6 @@ class TinyEnv
                 $key = trim($key);
                 $value = trim($value, " \t\n\r\0\x0B\"");
                 foreach ($prefixes as $prefix) {
-                    // $prefix is always string due to PHPDoc, so remove is_string()
                     if (strpos($key, $prefix) !== false) {
                         $_ENV[$key] = $value;
                         self::$cache[$key] = $value;
@@ -96,7 +98,8 @@ class TinyEnv
 
     /**
      * Load only specific environment variables by their keys.
-     * If reset is true, it will unload existing variables before loading new ones.
+     * 
+     * If reset is true, existing variables are cleared before loading new ones.
      *
      * @param array<int, string>|string $keys The key or array of keys to load.
      * @param bool $reset Whether to reset the existing environment variables before loading.
@@ -113,45 +116,68 @@ class TinyEnv
             $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
             if ($lines === false) throw new Exception("Failed to read: $file");
             foreach ($lines as $line) {
-                $line = trim($line);
-                if ($line === '' || $line[0] === '#' || strpos($line, '=') === false) continue;
-                [$key, $value] = explode('=', $line, 2);
-                $key = trim($key);
-                if (!in_array($key, $keys, true)) continue;
-                $value = trim($value, " \t\n\r\0\x0B\"");
-                $_ENV[$key] = $value;
-                self::$cache[$key] = $value;
+                $this->parseAndSetEnvLine($line, $keys);
             }
         }
         return $this;
     }
 
     /**
-     * Unload all environment variables loaded by TinyEnv.
+     * Unload all environment variables loaded.
+     * 
      * This will clear the $_ENV array and the internal cache.
      *
      * @return self
      */
     public function unload(): self
     {
-        foreach (self::$cache as $key => $_) unset($_ENV[$key]);
+        foreach (self::$cache as $key => $_) {
+            if (array_key_exists($key, $_ENV)) {
+                unset($_ENV[$key]);
+            }
+        }
         self::$cache = [];
         return $this;
     }
 
     /**
-     * Refresh the environment variables by unloading and then loading them again.
-     * This is useful if the environment variables have changed and you want to reload them.
+     * Reload environment variables by unloading and loading them.
+     * 
+     * Useful for reloading changed environment variables.
      *
      * @return self
+     * @throws Exception If the .env file cannot be read.
      */
     public function refresh(): self
     {
         return $this->unload()->load();
     }
 
+    
+    /**
+     * Parse a line from .env and set $_ENV/cache if valid.
+     * 
+     * Optionally filter by allowed keys.
+     *
+     * @param string $line
+     * @param array|null $allowedKeys
+     * @return void
+     */
+    private function parseAndSetEnvLine(string $line, ?array $allowedKeys = null): void
+    {
+        $line = trim($line);
+        if ($line === '' || $line[0] === '#' || strpos($line, '=') === false) return;
+        [$key, $value] = explode('=', $line, 2);
+        $key = trim($key);
+        if ($allowedKeys !== null && !in_array($key, $allowedKeys, true)) return;
+        $value = trim($value, " \t\n\r\0\x0B\"");
+        $_ENV[$key] = $value;
+        self::$cache[$key] = $value;
+    }
+
     /**
      * Load environment variables from a specific .env file.
+     * 
      * This method reads the file line by line, ignoring comments and empty lines,
      * and populates the $_ENV array and the internal cache with the key-value pairs.
      *
@@ -165,20 +191,16 @@ class TinyEnv
         $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         if ($lines === false) throw new Exception("Failed to read: $file");
         foreach ($lines as $line) {
-            $line = trim($line);
-            if ($line === '' || $line[0] === '#' || strpos($line, '=') === false) continue;
-            [$key, $value] = explode('=', $line, 2);
-            $key = trim($key);
-            $value = trim($value, " \t\n\r\0\x0B\"");
-            $_ENV[$key] = $value;
-            self::$cache[$key] = $value;
+            $this->parseAndSetEnvLine($line);
         }
         return true;
     }
 
     /**
      * Get the value of an environment variable by key.
+     * 
      * If the key is null, the entire $_ENV array is returned.
+     * 
      * Provides a default value if the key does not exist.
      *
      * @param string|null $key The key of the environment variable.
@@ -192,7 +214,9 @@ class TinyEnv
 
     /**
      * Set or update an environment variable dynamically and persist it in available files.
+     * 
      * Handles .env formats, creating files if necessary.
+     * 
      * Ensure proper file permissions when writing to files.
      *
      * @param string $key The key of the environment variable to set.
@@ -234,7 +258,8 @@ class TinyEnv
 
     /**
      * Set a value in the internal cache.
-     * This method is used to store values that are not necessarily environment variables.
+     * 
+     * Stores values that aren't necessarily environment variables.
      *
      * @param string $key The key to set in the cache.
      * @param mixed $value The value to set in the cache.
@@ -246,7 +271,8 @@ class TinyEnv
 
     /**
      * Validate the environment variables using the provided rules.
-     * If validation fails, an exception is thrown with the error messages.
+     * 
+     * Throws an exception with error messages if validation fails.
      *
      * @param array<string, array<string>|string> $rules The validation rules.
      * @return void
