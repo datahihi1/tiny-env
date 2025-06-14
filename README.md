@@ -189,3 +189,18 @@ $env->refresh();
 - Ensure the `.env` file and its directory are readable/writable when using `setenv()`.
 - Comments in `.env` files start with `#` and are ignored.
 - Use uppercase letters, numbers, and underscores for variable names (e.g., `APP_KEY`).
+---
+
+### Variable Interpolation
+
+TinyEnv supports variable interpolation within `.env` values. You can reference other variables using `${VAR_NAME}` syntax, and TinyEnv will automatically replace them with their corresponding values when loading:
+
+```
+DB_HOST=localhost
+DB_PORT=3306
+DB_URL=${DB_HOST}:${DB_PORT}
+```
+
+In this example, `DB_URL` will be set to `localhost:3306`. Interpolation works recursively and supports any variable defined earlier in the file or already loaded into the environment.
+
+**Note:** If a referenced variable is not defined, it will be replaced with an empty string.
