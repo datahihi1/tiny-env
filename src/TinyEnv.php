@@ -172,9 +172,10 @@ class TinyEnv
         if ($allowedKeys !== null && !in_array($key, $allowedKeys, true)) return;
         $value = trim($value, " \t\n\r\0\x0B\"");
 
-        $value = preg_replace_callback('/\${?([A-Z0-9_]+)}?/i', function ($matches) {
+        $value = preg_replace_callback('/\${?([A-Z0-9_]+)(:-([^}]+))?}?/i', function ($matches) {
             $var = $matches[1];
-            return $_ENV[$var] ?? self::$cache[$var] ?? '';
+            $default = isset($matches[3]) ? $matches[3] : '';
+            return $_ENV[$var] ?? self::$cache[$var] ?? $default;
         }, $value);
 
         $_ENV[$key] = $value;
