@@ -5,6 +5,7 @@ use Exception;
 
 /**
  * Validator class for validating environment variables.
+ * 
  * This class provides methods to validate environment variables based on specified rules.
  */
 final class Validator

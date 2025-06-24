@@ -19,7 +19,7 @@ Or manually add it to your `composer.json`:
 ```json
 {
     "require": {
-        "datahihi1/tiny-env": "^1.0.6"
+        "datahihi1/tiny-env": "^1.0.7"
     }
 }
 ```
@@ -84,7 +84,7 @@ echo env('DB_PORT'); // Output: 3306 (if present in .env)
 
 ```
 NAME=TinyEnv
-VERSION=1.0.6
+VERSION=1.0.7
 DB_HOST=localhost
 ```
 
@@ -155,7 +155,7 @@ Create a `.env` file in your project root:
 
 ```
 NAME=TinyEnv
-VERSION=1.0.6
+VERSION=1.0.7
 DB_HOST=localhost
 DB_PORT=3306
 ```
@@ -199,8 +199,9 @@ TinyEnv supports variable interpolation within `.env` values. You can reference 
 DB_HOST=localhost
 DB_PORT=3306
 DB_URL=${DB_HOST}:${DB_PORT}
+DB_USER=${USERNAME:-default_user}
 ```
 
 In this example, `DB_URL` will be set to `localhost:3306`. Interpolation works recursively and supports any variable defined earlier in the file or already loaded into the environment.
 
-**Note:** If a referenced variable is not defined, it will be replaced with an empty string.
+If a referenced variable is not defined, it will be replaced with an empty string or the default value if specified (e.g., `USERNAME` in the example above).
