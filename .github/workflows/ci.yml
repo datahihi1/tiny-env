@@ -28,16 +28,18 @@ jobs:
 
       - name: Install dependencies
         run: |
-          composer update --no-interaction --prefer-dist
+          composer install --no-interaction --prefer-dist
           composer remove phpstan/phpstan --dev || true
-
           composer require --dev phpstan/phpstan:^${{ matrix.phpstan-version }} --no-interaction || true
-          fi
 
       - name: Run PHPStan
         run: |
           if [ -f vendor/bin/phpstan ]; then
-            vendor/bin/phpstan analyse src --level=max || true
+            if [ -d src ]; then
+              vendor/bin/phpstan analyse src --level=max || true
+            else
+              vendor/bin/phpstan analyse . --level=max || true
+            fi
           else
             echo "phpstan not installed for this combination, skipping"
           fi
