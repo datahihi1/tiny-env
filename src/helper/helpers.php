@@ -1,5 +1,4 @@
 <?php
-
 use Datahihi1\TinyEnv\TinyEnv;
 
 if (!function_exists('env')) {

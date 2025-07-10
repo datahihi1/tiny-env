@@ -1,5 +1,4 @@
 <?php
-
 namespace Datahihi1\TinyEnv;
 
 use Exception;
@@ -46,15 +45,27 @@ class TinyEnv
 
     /**
      * Load environment variables from .env files in the specified root directories.
-     * 
-     * If the file does not exist or is not readable, an exception is thrown.
      *
+     * Usage:
+     * 
+     *   $env->load(); // Load all variables
+     * 
+     *   $env->load('DB_HOST'); // Load only DB_HOST
+     * 
+     *   $env->load(['DB_HOST', 'DB_PORT']); // Load only DB_HOST and DB_PORT
+     *
+     * @param array<int, string>|string $specificKeys The key or array of keys to load. If empty, loads all.
      * @return self
      * @throws Exception If the .env file cannot be read.
      */
-    public function load(): self
+    public function load($specificKeys = []): self
     {
-        foreach ($this->rootDirs as $dir) $this->loadEnvFile($dir . DIRECTORY_SEPARATOR . '.env');
+        $specificKeys = (array)$specificKeys;
+        $filter = count($specificKeys) > 0 ? $specificKeys : null;
+        foreach ($this->rootDirs as $dir) {
+            $file = $dir . DIRECTORY_SEPARATOR . '.env';
+            $this->loadEnvFile($file, $filter);
+        }
         return $this;
     }
 
@@ -63,16 +74,12 @@ class TinyEnv
      * 
      * This method loads only variables with the specified prefixes.
      * 
-     * If reset is true, existing variables are cleared before loading new ones.
-     *
      * @param array<int, string> $prefixes Array of prefixes to filter environment variables.
-     * @param bool $reset Whether to reset the existing environment variables before loading.
      * @return self
      * @throws Exception If the .env file cannot be read.
      */
-    public function lazy(array $prefixes, bool $reset = false): self
+    public function lazy(array $prefixes): self
     {
-        if ($reset) $this->unload();
         foreach ($this->rootDirs as $dir) {
             $file = $dir . DIRECTORY_SEPARATOR . '.env';
             if (!is_file($file) || !is_readable($file)) throw new Exception("Cannot read: $file");
@@ -98,28 +105,18 @@ class TinyEnv
 
     /**
      * Load only specific environment variables by their keys.
-     * 
-     * If reset is true, existing variables are cleared before loading new ones.
      *
      * @param array<int, string>|string $keys The key or array of keys to load.
      * @param bool $reset Whether to reset the existing environment variables before loading.
      * @return self
      * @throws Exception If the .env file cannot be read.
+     *
+     * @deprecated After version 1.0.8, this method is deprecated. Use `load()` with $specificKeys instead.
      */
     public function only($keys, bool $reset = false): self
     {
-        $keys = (array)$keys;
         if ($reset) $this->unload();
-        foreach ($this->rootDirs as $dir) {
-            $file = $dir . DIRECTORY_SEPARATOR . '.env';
-            if (!is_file($file) || !is_readable($file)) throw new Exception("Cannot read: $file");
-            $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-            if ($lines === false) throw new Exception("Failed to read: $file");
-            foreach ($lines as $line) {
-                $this->parseAndSetEnvLine($line, $keys);
-            }
-        }
-        return $this;
+        return $this->load($keys);
     }
 
     /**
@@ -185,22 +182,20 @@ class TinyEnv
     }
 
     /**
-     * Load environment variables from a specific .env file.
-     * 
-     * This method reads the file line by line, ignoring comments and empty lines,
-     * and populates the $_ENV array and the internal cache with the key-value pairs.
+     * Load environment variables from a specific .env file, optionally filtering by keys.
      *
      * @param string $file The path to the .env file.
+     * @param array<int, string>|null $filter Array of keys to load, or null to load all.
      * @return bool True if the file was loaded successfully.
      * @throws Exception If the file cannot be read or is not readable.
      */
-    protected function loadEnvFile(string $file): bool
+    protected function loadEnvFile(string $file, ?array $filter = null): bool
     {
         if (!is_file($file) || !is_readable($file)) throw new Exception("Cannot read: $file");
         $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         if ($lines === false) throw new Exception("Failed to read: $file");
         foreach ($lines as $line) {
-            $this->parseAndSetEnvLine($line);
+            $this->parseAndSetEnvLine($line, $filter);
         }
         return true;
     }
