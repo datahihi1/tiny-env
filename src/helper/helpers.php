@@ -1,17 +1,16 @@
 <?php
 use Datahihi1\TinyEnv\TinyEnv;
+use Datahihi1\TinyEnv\Validator;
 
 if (!function_exists('env')) {
     /**
-     * Get the value of an environment variable by key.
-     * 
-     * If the key is null, the entire $_ENV array is returned.
-     * 
-     * Provides a default value if the key does not exist.
+     * Get an env value by key or all($_ENV) if null.
+     *
+     * Returns $default if the key is not set.
      *
      * @param string|null $key The key of the environment variable.
      * @param mixed $default The default value if the key does not exist.
-     * @return mixed The value of the environment variable or the default value(`$default`).
+     * @return mixed The value or $default if the key is missing.
      */
     function env(?string $key = null, $default = null)
     {
@@ -21,16 +20,11 @@ if (!function_exists('env')) {
 
 if (!function_exists('setenv')) {
     /**
-     * Set or update an environment variable dynamically and persist it in available files.
-     * 
-     * Handles .env formats, creating files if necessary.
-     * 
-     * Ensure proper file permissions when writing to files.
+     * Set or update an environment variable and persist it.
      *
-     * @param string $key The key of the environment variable to set.
-     * @param mixed $value The value to set for the environment variable.
-     * @return void
-     * @throws Exception If the file is not writable or cannot be created.
+     * @param string $key Environment variable name.
+     * @param mixed $value Value to set.
+     * @throws Exception If the .env file is unwritable or cannot be created.
      */
     function setenv(string $key, $value = null): void
     {
@@ -38,18 +32,15 @@ if (!function_exists('setenv')) {
     }
 }
 
-if(!function_exists('validate_env')) {
+if (!function_exists('validate_env')) {
     /**
      * Validate the environment variables using the provided rules.
-     * 
-     * If validation fails, an exception is thrown with the error messages.
      *
      * @param array<string, array<string>|string> $rules The validation rules.
-     * @return void
      * @throws Exception If validation fails.
      */
     function validate_env(array $rules): void
     {
-        TinyEnv::validate($rules);
+        Validator::validate($rules);
     }
 }

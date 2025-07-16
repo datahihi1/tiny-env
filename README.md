@@ -11,17 +11,15 @@ A simple environment variable loader for PHP applications. Designed for small pr
 Installation is straightforward with [Composer](https://getcomposer.org/):
 
 ```bash
-composer require datahihi1/tiny-env
+composer require datahihi1/tiny-env:^1.0.8
 ```
 
 Or manually add it to your `composer.json`:
 
 ```json
-{
     "require": {
-        "datahihi1/tiny-env": "^1.0.7"
+        "datahihi1/tiny-env": "^1.0.8"
     }
-}
 ```
 
 Run `composer install` or `composer update` to download the package.
@@ -37,11 +35,14 @@ use Datahihi1\TinyEnv\TinyEnv;
 // Load from the current directory
 $env = new TinyEnv(__DIR__);
 $env->load();
+
+// Or load with only specific keys
+$env->load(['DB_HOST', 'DB_PORT']);
 ```
 
 #### 2. Fast Load Option
 
-Use the `fastLoad` option in the constructor to load variables immediately:
+Use the `fastLoad` option in the constructor to load all variables immediately:
 
 ```php
 require 'vendor/autoload.php';
@@ -59,21 +60,11 @@ $env->lazy(['DB']); // Loads only variables starting with DB_
 echo env('DB_HOST'); // Output: localhost
 echo env('NAME', 'N/A'); // Output: N/A (NAME not loaded)
 ```
-
-#### 4. `only()` - Load Only Specific Variables
-
-Load only the specified environment variables by key (single or array):
+#### 4. `safeLoad()` - Safe Load Option
+Load variables but do not check for existence of .env file, allowing for a more flexible setup:
 
 ```php
-// Load only DB_HOST
-$env->only('DB_HOST');
-
-// Load only DB_HOST and DB_PORT
-$env->only(['DB_HOST', 'DB_PORT']);
-
-// After calling only(), only those variables are available in env()
-echo env('DB_HOST'); // Output: localhost (if present in .env)
-echo env('DB_PORT'); // Output: 3306 (if present in .env)
+$env->safeLoad(); // Loads variables without throwing an error if .env file is missing
 ```
 
 ---
@@ -84,7 +75,7 @@ echo env('DB_PORT'); // Output: 3306 (if present in .env)
 
 ```
 NAME=TinyEnv
-VERSION=1.0.7
+VERSION=1.0.8
 DB_HOST=localhost
 ```
 
@@ -93,7 +84,6 @@ DB_HOST=localhost
 Use the global `env()` function to get environment variables:
 
 ```php
-
 // Get a specific variable
 echo env('NAME'); // Output: TinyEnv
 
@@ -114,7 +104,7 @@ setenv('KEY', 'demo'); // Sets KEY=demo in $_ENV and .env file
 echo env('KEY'); // Output: demo
 ```
 
-**Note**: To disable file writing, use `TinyEnv::setAllowFileWrites(false)`.
+> **Warning:** In production, always use `TinyEnv::setAllowFileWrites(false);` to prevent accidental or unauthorized changes to your `.env` file.
 
 #### 3. `validate_env()` - Validate Variables
 
@@ -127,35 +117,13 @@ validate_env([
 ]);
 ```
 
-#### 4. `unload()` - Clear Variables
-
-Remove all loaded environment variables from `$_ENV` and the internal cache:
-
-```php
-$env->load();
-print_r(env()); // Shows all variables from .env
-$env->unload();
-print_r(env()); // Empty array
-```
-
-#### 5. `refresh()` - Reload Variables
-
-Clear current variables and reload from the `.env` file:
-
-```php
-$env->refresh(); // Equivalent to $env->unload()->load()
-print_r(env()); // Updated variables from .env
-```
-
----
-
 ### Example `.env` File
 
 Create a `.env` file in your project root:
 
 ```
 NAME=TinyEnv
-VERSION=1.0.7
+VERSION=1.0.8
 DB_HOST=localhost
 DB_PORT=3306
 ```
@@ -180,8 +148,6 @@ setenv('APP_DEBUG', true);
 // Validate
 validate_env(['APP_DEBUG' => 'bool']);
 
-// Refresh
-$env->refresh();
 ```
 
 ### Notes
@@ -189,6 +155,7 @@ $env->refresh();
 - Ensure the `.env` file and its directory are readable/writable when using `setenv()`.
 - Comments in `.env` files start with `#` and are ignored.
 - Use uppercase letters, numbers, and underscores for variable names (e.g., `APP_KEY`).
+- **In production, always use `TinyEnv::setAllowFileWrites(false);` to prevent accidental or unauthorized changes to your `.env` file.**
 ---
 
 ### Variable Interpolation
