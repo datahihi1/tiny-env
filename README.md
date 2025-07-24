@@ -144,6 +144,7 @@ use Datahihi1\TinyEnv\TinyEnv;
 
 // Initialize and load
 $env = new TinyEnv(__DIR__);
+$env->envfiles(['.env', '.env.local']);
 $env->load();
 
 // Access variables
