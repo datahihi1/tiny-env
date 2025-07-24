@@ -11,14 +11,14 @@ A simple environment variable loader for PHP applications. Designed for small pr
 Installation is straightforward with [Composer](https://getcomposer.org/):
 
 ```bash
-composer require datahihi1/tiny-env:^1.0.8
+composer require datahihi1/tiny-env:^1.0.9
 ```
 
 Or manually add it to your `composer.json`:
 
 ```json
     "require": {
-        "datahihi1/tiny-env": "^1.0.8"
+        "datahihi1/tiny-env": "^1.0.9"
     }
 ```
 
@@ -67,6 +67,14 @@ Load variables but do not check for existence of .env file, allowing for a more 
 $env->safeLoad(); // Loads variables without throwing an error if .env file is missing
 ```
 
+##### Options: `envfiles()` - Specify Multiple `.env` Files
+
+You can specify multiple `.env` files to load in order of priority. Later files will override earlier ones:
+
+```php
+$env->envfiles(['.env.local', '.env.production']);
+```
+
 ---
 
 ### Usage
@@ -75,7 +83,7 @@ $env->safeLoad(); // Loads variables without throwing an error if .env file is m
 
 ```
 NAME=TinyEnv
-VERSION=1.0.8
+VERSION=1.0.9
 DB_HOST=localhost
 ```
 

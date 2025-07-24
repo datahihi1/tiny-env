@@ -14,6 +14,8 @@ class TinyEnv
     protected static $cache = [];
     /** @var bool */
     protected static $allowFileWrites = true;
+    /** @var string[] */
+    protected $envFiles = ['.env'];
 
     /**
      * Constructor to initialize the TinyEnv instance.
@@ -40,6 +42,24 @@ class TinyEnv
     }
 
     /**
+     * Specify which env files to load (in order of priority, later files override earlier ones).
+     *
+     * @param array<int, string> $files List of .env files to load, e.g., ['.env.local', '.env.production']
+     * @return self
+     */
+    public function envfiles(array $files): self
+    {
+        // Always ensure .env is first if present, and no duplicates
+        $files = array_unique($files);
+        if (($i = array_search('.env', $files, true)) !== false) {
+            unset($files[$i]);
+            array_unshift($files, '.env');
+        }
+        $this->envFiles = array_values($files);
+        return $this;
+    }
+
+    /**
      * Load environment variables from .env files in the specified root directories.
      *
      * Usage:
@@ -56,8 +76,12 @@ class TinyEnv
         $specificKeys = (array)$specificKeys;
         $filter = count($specificKeys) > 0 ? $specificKeys : null;
         foreach ($this->rootDirs as $dir) {
-            $file = $dir . DIRECTORY_SEPARATOR . '.env';
-            $this->loadEnvFile($file, $filter);
+            foreach ($this->envFiles as $fileName) {
+                $file = $dir . DIRECTORY_SEPARATOR . $fileName;
+                if (is_file($file) && is_readable($file)) {
+                    $this->loadEnvFile($file, $filter);
+                }
+            }
         }
         return $this;
     }
@@ -71,21 +95,23 @@ class TinyEnv
     public function lazy(array $prefixes): self
     {
         foreach ($this->rootDirs as $dir) {
-            $file = $dir . DIRECTORY_SEPARATOR . '.env';
-            if (!is_file($file) || !is_readable($file)) throw new Exception("Cannot read: $file");
-            $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-            if ($lines === false) throw new Exception("Failed to read: $file");
-            foreach ($lines as $line) {
-                $line = trim($line);
-                if ($line === '' || $line[0] === '#' || strpos($line, '=') === false) continue;
-                [$key, $value] = explode('=', $line, 2);
-                $key = trim($key);
-                $value = trim($value, " \t\n\r\0\x0B\"");
-                foreach ($prefixes as $prefix) {
-                    if (strpos($key, $prefix) !== false) {
-                        $_ENV[$key] = $value;
-                        self::$cache[$key] = $value;
-                        break;
+            foreach ($this->envFiles as $fileName) {
+                $file = $dir . DIRECTORY_SEPARATOR . $fileName;
+                if (!is_file($file) || !is_readable($file)) continue;
+                $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+                if ($lines === false) continue;
+                foreach ($lines as $line) {
+                    $line = trim($line);
+                    if ($line === '' || $line[0] === '#' || strpos($line, '=') === false) continue;
+                    [$key, $value] = explode('=', $line, 2);
+                    $key = trim($key);
+                    $value = trim($value, " \t\n\r\0\x0B\"");
+                    foreach ($prefixes as $prefix) {
+                        if (strpos($key, $prefix) !== false) {
+                            $_ENV[$key] = $value;
+                            self::$cache[$key] = $value;
+                            break;
+                        }
                     }
                 }
             }
@@ -105,12 +131,14 @@ class TinyEnv
         $specificKeys = (array)$specificKeys;
         $filter = count($specificKeys) > 0 ? $specificKeys : null;
         foreach ($this->rootDirs as $dir) {
-            $file = $dir . DIRECTORY_SEPARATOR . '.env';
-            if (!is_file($file) || !is_readable($file)) continue;
-            $lines = @file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-            if ($lines === false) continue;
-            foreach ($lines as $line) {
-                $this->parseAndSetEnvLine($line, $filter);
+            foreach ($this->envFiles as $fileName) {
+                $file = $dir . DIRECTORY_SEPARATOR . $fileName;
+                if (!is_file($file) || !is_readable($file)) continue;
+                $lines = @file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+                if ($lines === false) continue;
+                foreach ($lines as $line) {
+                    $this->parseAndSetEnvLine($line, $filter);
+                }
             }
         }
         return $this;
