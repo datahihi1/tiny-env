@@ -13,9 +13,11 @@ class TinyEnv
     /** @var array<string, mixed> */
     protected static $cache = [];
     /** @var bool */
-    protected static $allowFileWrites = true;
+    protected static $allowFileWrites = false;
     /** @var string[] */
     protected $envFiles = ['.env'];
+    /** @var string|null */
+    protected $fileCache = null;
 
     /**
      * Constructor to initialize the TinyEnv instance.
@@ -49,7 +51,6 @@ class TinyEnv
      */
     public function envfiles(array $files): self
     {
-        // Always ensure .env is first if present, and no duplicates
         $files = array_unique($files);
         if (($i = array_search('.env', $files, true)) !== false) {
             unset($files[$i]);
@@ -75,13 +76,21 @@ class TinyEnv
     {
         $specificKeys = (array)$specificKeys;
         $filter = count($specificKeys) > 0 ? $specificKeys : null;
+        $loaded = false;
         foreach ($this->rootDirs as $dir) {
             foreach ($this->envFiles as $fileName) {
                 $file = $dir . DIRECTORY_SEPARATOR . $fileName;
                 if (is_file($file) && is_readable($file)) {
                     $this->loadEnvFile($file, $filter);
+                    $loaded = true;
                 }
             }
+        }
+        if ($this->fileCache) {
+            $this->saveCacheToFile();
+        }
+        if (!$loaded) {
+            throw new Exception("No env file found in: " . implode(', ', $this->rootDirs));
         }
         return $this;
     }
@@ -253,5 +262,72 @@ class TinyEnv
     public static function setCache(string $key, $value): void
     {
         self::$cache[$key] = $value;
+    }
+
+    /**
+     * Set the file cache name for environment variables.
+     *
+     * @param string $fileCache
+     * @return self
+     */
+    public function setFileCache(string $fileCache): self
+    {
+        $this->fileCache = $fileCache;
+        return $this;
+    }
+
+    /**
+     * Ensure the cache file is ignored by Git by adding it to .gitignore.
+     *
+     * @param bool $accept If true, will automatically add the cache file to .gitignore if not already present.
+     * @return self
+     */
+    public function secureByGitignore(bool $accept = true): self
+    {
+        if (!$accept || !$this->fileCache) return $this;
+        $gitignore = dirname(__DIR__, 1) . DIRECTORY_SEPARATOR . '.gitignore';
+        $cacheFile = $this->fileCache;
+
+        if (!file_exists($gitignore)) {
+            file_put_contents($gitignore, "$cacheFile\n");
+            return $this;
+        }
+        $lines = file($gitignore, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if (!in_array($cacheFile, $lines, true)) {
+            $lines[] = $cacheFile;
+            file_put_contents($gitignore, implode("\n", $lines) . "\n");
+        }
+        return $this;
+    }
+
+    /**
+     * Save the current environment variables cache to a file.
+     *
+     * @return self
+     */
+    public function saveCacheToFile(): self
+    {
+        if (!$this->fileCache) return $this;
+        $content = '<?php return ' . var_export(self::$cache, true) . ';';
+        file_put_contents($this->fileCache, $content, LOCK_EX);
+        return $this;
+    }
+
+    /**
+     * Load the environment variables cache from a file.
+     *
+     * @return self
+     */
+    public function loadCacheFromFile(): self
+    {
+        if (!$this->fileCache || !is_file($this->fileCache)) return $this;
+        $data = include $this->fileCache;
+        if (is_array($data)) {
+            foreach ($data as $key => $value) {
+                $_ENV[$key] = $value;
+                self::$cache[$key] = $value;
+            }
+        }
+        return $this;
     }
 }

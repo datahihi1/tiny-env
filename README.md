@@ -2,6 +2,8 @@
 
 A simple environment variable loader for PHP applications. Designed for small projects, `TinyEnv` minimizes resource usage while ensuring stable performance. It loads environment variables from `.env` files and provides flexible methods to manage them.
 
+**Note:** This branch is for testing purposes only. For production use, please refer to the [main branch](https://github.com/datahihi1/tiny-env.git)
+
 ---
 
 ### Installation and Setup
@@ -11,14 +13,14 @@ A simple environment variable loader for PHP applications. Designed for small pr
 Installation is straightforward with [Composer](https://getcomposer.org/):
 
 ```bash
-composer require datahihi1/tiny-env:^1.0.9
+composer require datahihi1/tiny-env:^dev-test
 ```
 
 Or manually add it to your `composer.json`:
 
 ```json
     "require": {
-        "datahihi1/tiny-env": "^1.0.9"
+        "datahihi1/tiny-env": "dev-test"
     }
 ```
 
