@@ -117,7 +117,7 @@ class TinyEnv
                     [$key, $value] = explode('=', $line, 2);
                     $key = trim($key);
                     foreach ($prefixes as $prefix) {
-                        if (stripos($key, $prefix) === 0) { // bắt đầu bằng prefix (không phân biệt hoa thường)
+                        if (stripos($key, $prefix) === 0) {
                             if (!array_key_exists($key, $_ENV)) {
                                 $value = trim($value, " \t\n\r\0\x0B\"");
                                 $_ENV[$key] = $value;
@@ -265,14 +265,12 @@ class TinyEnv
     {
         static $sysenvCache = [];
         static $allEnvCache = null;
-        // Trả về toàn bộ biến môi trường hệ thống nếu không truyền key
         if ($key === null) {
             if ($allEnvCache !== null)
                 return $allEnvCache;
             $allEnvCache = getenv();
             return $allEnvCache;
         }
-        // Nếu chỉ truyền key, get
         if (func_num_args() === 1) {
             if (array_key_exists($key, $sysenvCache)) {
                 return $sysenvCache[$key];
@@ -281,13 +279,12 @@ class TinyEnv
             $sysenvCache[$key] = $val;
             return $val;
         }
-        // Nếu truyền cả key và value, set
         $ok = putenv("{$key}={$value}");
         if ($ok) {
             $sysenvCache[$key] = $value;
             $_ENV[$key] = $value;
             $_SERVER[$key] = $value;
-            $allEnvCache = null; // reset cache toàn bộ khi set
+            $allEnvCache = null;
         }
         return $ok;
     }
