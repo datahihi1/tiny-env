@@ -8,12 +8,12 @@ use Exception;
  */
 class TinyEnv
 {
+    /** @var bool */
+    protected static $loaded = false;
     /** @var string[] */
     protected $rootDirs;
     /** @var array<string, mixed> */
     protected static $cache = [];
-    /** @var bool */
-    protected static $allowFileWrites = true;
     /** @var string[] */
     protected $envFiles = ['.env'];
 
@@ -27,18 +27,9 @@ class TinyEnv
      */
     public function __construct($rootDirs, bool $fastLoad = false)
     {
-        $this->rootDirs = (array)$rootDirs;
-        if ($fastLoad) $this->load();
-    }
-
-    /**
-     * Set whether to allow writing to .env files.
-     *
-     * @param bool $allow
-     */
-    public static function setAllowFileWrites(bool $allow): void
-    {
-        self::$allowFileWrites = $allow;
+        $this->rootDirs = (array) $rootDirs;
+        if ($fastLoad)
+            $this->loadInternal([], true);
     }
 
     /**
@@ -49,7 +40,6 @@ class TinyEnv
      */
     public function envfiles(array $files): self
     {
-        // Always ensure .env is first if present, and no duplicates
         $files = array_unique($files);
         if (($i = array_search('.env', $files, true)) !== false) {
             unset($files[$i]);
@@ -73,7 +63,21 @@ class TinyEnv
      */
     public function load($specificKeys = []): self
     {
-        $specificKeys = (array)$specificKeys;
+        return $this->loadInternal($specificKeys);
+
+    }
+
+    /**
+     * Load env variables, with option to force reload.
+     * @param array<int, string>|string $specificKeys
+     * @param bool $forceReload
+     * @return self
+     */
+    protected function loadInternal($specificKeys = [], bool $forceReload = false): self
+    {
+        if (self::$loaded && !$forceReload)
+            return $this;
+        $specificKeys = (array) $specificKeys;
         $filter = count($specificKeys) > 0 ? $specificKeys : null;
         foreach ($this->rootDirs as $dir) {
             foreach ($this->envFiles as $fileName) {
@@ -83,6 +87,7 @@ class TinyEnv
                 }
             }
         }
+        self::$loaded = true;
         return $this;
     }
 
@@ -94,22 +99,30 @@ class TinyEnv
      */
     public function lazy(array $prefixes): self
     {
+        $prefixes = array_filter(array_map('strval', $prefixes));
+        if (empty($prefixes))
+            return $this;
         foreach ($this->rootDirs as $dir) {
             foreach ($this->envFiles as $fileName) {
                 $file = $dir . DIRECTORY_SEPARATOR . $fileName;
-                if (!is_file($file) || !is_readable($file)) continue;
+                if (!is_file($file) || !is_readable($file))
+                    continue;
                 $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-                if ($lines === false) continue;
+                if ($lines === false)
+                    continue;
                 foreach ($lines as $line) {
                     $line = trim($line);
-                    if ($line === '' || $line[0] === '#' || strpos($line, '=') === false) continue;
+                    if ($line === '' || $line[0] === '#' || strpos($line, '=') === false)
+                        continue;
                     [$key, $value] = explode('=', $line, 2);
                     $key = trim($key);
-                    $value = trim($value, " \t\n\r\0\x0B\"");
                     foreach ($prefixes as $prefix) {
-                        if (strpos($key, $prefix) !== false) {
-                            $_ENV[$key] = $value;
-                            self::$cache[$key] = $value;
+                        if (stripos($key, $prefix) === 0) { // bắt đầu bằng prefix (không phân biệt hoa thường)
+                            if (!array_key_exists($key, $_ENV)) {
+                                $value = trim($value, " \t\n\r\0\x0B\"");
+                                $_ENV[$key] = $value;
+                                self::$cache[$key] = $value;
+                            }
                             break;
                         }
                     }
@@ -128,14 +141,16 @@ class TinyEnv
      */
     public function safeLoad($specificKeys = []): self
     {
-        $specificKeys = (array)$specificKeys;
+        $specificKeys = (array) $specificKeys;
         $filter = count($specificKeys) > 0 ? $specificKeys : null;
         foreach ($this->rootDirs as $dir) {
             foreach ($this->envFiles as $fileName) {
                 $file = $dir . DIRECTORY_SEPARATOR . $fileName;
-                if (!is_file($file) || !is_readable($file)) continue;
+                if (!is_file($file) || !is_readable($file))
+                    continue;
                 $lines = @file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-                if ($lines === false) continue;
+                if ($lines === false)
+                    continue;
                 foreach ($lines as $line) {
                     $this->parseAndSetEnvLine($line, $filter);
                 }
@@ -143,7 +158,7 @@ class TinyEnv
         }
         return $this;
     }
-    
+
     /**
      * Parse a line from .env and set $_ENV/cache if valid.
      * 
@@ -155,22 +170,28 @@ class TinyEnv
     private function parseAndSetEnvLine(string $line, ?array $allowedKeys = null): void
     {
         $line = trim($line);
-        if ($line === '' || $line[0] === '#' || strpos($line, '=') === false) return;
+        if ($line === '' || $line[0] === '#' || strpos($line, '=') === false)
+            return;
         [$key, $value] = explode('=', $line, 2);
         $key = trim($key);
-        if ($allowedKeys !== null && !in_array($key, $allowedKeys, true)) return;
+        if ($allowedKeys !== null && !in_array($key, $allowedKeys, true))
+            return;
         $value = trim($value, " \t\n\r\0\x0B\"");
 
-        $value = preg_replace_callback('/\${?([A-Z0-9_]+)(:-([^}]+))?}?/i',function (array $matches): string {
+        $value = preg_replace_callback(
+            '/\${?([A-Z0-9_]+)(:-([^}]+))?}?/i',
+            function (array $matches): string {
                 $var = $matches[1];
                 $default = $matches[3] ?? '';
-                $env = $_ENV[$var] ?? (self::$cache[$var] ?? null);
+                $env = isset($_ENV[$var]) ? $_ENV[$var] : (isset(self::$cache[$var]) ? self::$cache[$var] : null);
                 return is_string($env) ? $env : $default;
-            },$value
+            },
+            $value
         );
 
-        $_ENV[$key] = $value;
-        self::$cache[$key] = $value;
+        $parsed = self::parseValue($value);
+        $_ENV[$key] = $parsed;
+        self::$cache[$key] = $parsed;
     }
 
     /**
@@ -183,13 +204,37 @@ class TinyEnv
      */
     protected function loadEnvFile(string $file, ?array $filter = null): bool
     {
-        if (!is_file($file) || !is_readable($file)) throw new Exception("Cannot read: $file");
+        if (!is_file($file) || !is_readable($file))
+            throw new Exception("Cannot read: $file");
         $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        if ($lines === false) throw new Exception("Failed to read: $file");
+        if ($lines === false)
+            throw new Exception("Failed to read: $file");
         foreach ($lines as $line) {
             $this->parseAndSetEnvLine($line, $filter);
         }
         return true;
+    }
+
+    /**
+     * Parse env value to correct type: bool, int, float, null, string
+     * @param string|null $value
+     * @return mixed
+     */
+    private static function parseValue($value)
+    {
+        if (!is_string($value))
+            return $value;
+        $lower = strtolower($value);
+        if ($lower === 'true' || $lower === 'yes' || $lower === 'on')
+            return true;
+        if ($lower === 'false' || $lower === 'no' || $lower === 'off')
+            return false;
+        if ($lower === 'null' || $value === '')
+            return null;
+        if (is_numeric($value)) {
+            return strpos($value, '.') !== false ? (float) $value : (int) $value;
+        }
+        return $value;
     }
 
     /**
@@ -203,45 +248,48 @@ class TinyEnv
      */
     public static function env(?string $key = null, $default = null)
     {
-        return $key === null ? $_ENV : (self::$cache[$key] ?? $_ENV[$key] ?? $default);
+        if ($key === null)
+            return $_ENV;
+        $val = self::$cache[$key] ?? $_ENV[$key] ?? $default;
+        return self::parseValue($val);
     }
 
     /**
-     * Set or update an environment variable dynamically and persist it in available files.
+     * Get or set a system environment variable (like getenv/putenv), with cache for performance.
      *
-     * @param string $key The key of the environment variable to set.
-     * @param mixed $value The value to set for the environment variable.
-     * @throws Exception If the file is not writable or cannot be created.
+     * @param string|null $key
+     * @param string|null $value If null, get; else set the env var
+     * @return string|false|null Returns value if get, or true/false if set
      */
-    public static function setenv(string $key, $value = null): void
+    public static function sysenv(?string $key = null, ?string $value = null)
     {
-        $key = trim($key);
-        if (!preg_match('/^[A-Z0-9_]+$/', $key)) throw new Exception("Invalid key: $key");
-        if (is_bool($value)) {
-            $fileValue = $value ? 'true' : 'false';
-        } elseif (is_scalar($value) || $value === null) {
-            $fileValue = trim((string)$value);
-        } else {
-            throw new Exception("Cannot cast value for '$key'");
+        static $sysenvCache = [];
+        static $allEnvCache = null;
+        // Trả về toàn bộ biến môi trường hệ thống nếu không truyền key
+        if ($key === null) {
+            if ($allEnvCache !== null)
+                return $allEnvCache;
+            $allEnvCache = getenv();
+            return $allEnvCache;
         }
-        $_ENV[$key] = $value;
-        self::$cache[$key] = $value;
-        if (!self::$allowFileWrites) return;
-        $envFile = '.env';
-        try {
-            if (file_exists($envFile)) {
-                if (!is_writable($envFile)) throw new Exception("Not writable: $envFile");
-                $content = file_get_contents($envFile);
-                if ($content === false) throw new Exception("Failed to read: $envFile");
-                $pattern = '/^' . preg_quote($key, '/') . '=.*$/m';
-                $content = preg_match($pattern, $content) ? preg_replace($pattern, "$key=$fileValue", $content) : $content . "\n$key=$fileValue";
-                file_put_contents($envFile, $content, LOCK_EX);
-            } elseif (is_writable(dirname($envFile))) {
-                file_put_contents($envFile, "$key=$fileValue\n", LOCK_EX);
-            } else throw new Exception("Cannot create: $envFile");
-        } catch (Exception $e) {
-            throw $e;
+        // Nếu chỉ truyền key, get
+        if (func_num_args() === 1) {
+            if (array_key_exists($key, $sysenvCache)) {
+                return $sysenvCache[$key];
+            }
+            $val = getenv($key);
+            $sysenvCache[$key] = $val;
+            return $val;
         }
+        // Nếu truyền cả key và value, set
+        $ok = putenv("{$key}={$value}");
+        if ($ok) {
+            $sysenvCache[$key] = $value;
+            $_ENV[$key] = $value;
+            $_SERVER[$key] = $value;
+            $allEnvCache = null; // reset cache toàn bộ khi set
+        }
+        return $ok;
     }
 
     /**

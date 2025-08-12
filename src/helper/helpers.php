@@ -18,20 +18,6 @@ if (!function_exists('env')) {
     }
 }
 
-if (!function_exists('setenv')) {
-    /**
-     * Set or update an environment variable and persist it.
-     *
-     * @param string $key Environment variable name.
-     * @param mixed $value Value to set.
-     * @throws Exception If the .env file is unwritable or cannot be created.
-     */
-    function setenv(string $key, $value = null): void
-    {
-        TinyEnv::setenv($key, $value);
-    }
-}
-
 if (!function_exists('validate_env')) {
     /**
      * Validate the environment variables using the provided rules.
@@ -42,5 +28,18 @@ if (!function_exists('validate_env')) {
     function validate_env(array $rules): void
     {
         Validator::validate($rules);
+    }
+}
+
+if (!function_exists('sysenv')) {
+    /**
+     * Get or set a system environment variable (like getenv/putenv). But supports cache it.
+     *
+     * @param string|null $key The key of the environment variable or system variable.
+     * @param string|null $value If null, get; else set the env var
+     * @return string|false|null Returns value if get, or true/false if set
+     */
+    function sysenv(?string $key = null, ?string $value = null) {
+        return TinyEnv::sysenv($key, $value);
     }
 }

@@ -102,19 +102,7 @@ echo env('TESTER', 'Datahihi1'); // Output: Datahihi1 (if TESTER is not defined)
 print_r(env());
 ```
 
-#### 2. `setenv()` - Set or Update Variables
-
-Use `setenv()` to dynamically set or update environment variables. If file writing is enabled (default), it also updates the `.env` file:
-
-```php
-
-setenv('KEY', 'demo'); // Sets KEY=demo in $_ENV and .env file
-echo env('KEY'); // Output: demo
-```
-
-> **Warning:** In production, always use `TinyEnv::setAllowFileWrites(false);` to prevent accidental or unauthorized changes to your `.env` file.
-
-#### 3. `validate_env()` - Validate Variables
+#### 2. `validate_env()` - Validate Variables
 
 Ensure variables meet specific rules (e.g., `required`, `int`, `bool`, `string`):
 
@@ -131,7 +119,7 @@ Create a `.env` file in your project root:
 
 ```
 NAME=TinyEnv
-VERSION=1.0.8
+VERSION=1.0.10
 DB_HOST=localhost
 DB_PORT=3306
 ```
@@ -151,9 +139,6 @@ $env->load();
 echo env('NAME', 'Unknown'); // TinyEnv
 echo env('NOT_FOUND', 'Default'); // Default
 
-// Set a new variable
-setenv('APP_DEBUG', true);
-
 // Validate
 validate_env(['APP_DEBUG' => 'bool']);
 
@@ -161,10 +146,8 @@ validate_env(['APP_DEBUG' => 'bool']);
 
 ### Notes
 
-- Ensure the `.env` file and its directory are readable/writable when using `setenv()`.
 - Comments in `.env` files start with `#` and are ignored.
 - Use uppercase letters, numbers, and underscores for variable names (e.g., `APP_KEY`).
-- **In production, always use `TinyEnv::setAllowFileWrites(false);` to prevent accidental or unauthorized changes to your `.env` file.**
 ---
 
 ### Variable Interpolation
