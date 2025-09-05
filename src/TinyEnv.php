@@ -184,28 +184,28 @@ class TinyEnv
             '/\${?([A-Z0-9_]+)(:?[-?])?([^}]*)}?/i',
             function (array $m): string {
                 $var = $m[1];
-                $op = $m[2] ?? null;
-                $arg = $m[3] ?? '';
+                $op = $m[2];
+                $arg = $m[3];
 
                 $env = $_ENV[$var] ?? (self::$cache[$var] ?? null);
 
                 switch ($op) {
                     case ':-':
-                        return ($env === null || $env === '') ? $arg : $env;
+                        return (string)(($env === null || $env === '') ? $arg : $env);
                     case '-':
-                        return ($env === null) ? $arg : $env;
+                        return (string)(($env === null) ? $arg : $env);
                     case '?':
                         if ($env === null || $env === '') {
                             throw new Exception("TinyEnv: missing required variable '$var' ($arg)");
                         }
-                        return $env;
+                        return (string)$env;
                     case ':?':
                         if ($env === null) {
                             throw new Exception("TinyEnv: missing required variable '$var' ($arg)");
                         }
-                        return $env;
+                        return (string)$env;
                     default:
-                        return ($env !== null) ? $env : '';
+                        return (string)(($env !== null) ? $env : '');
                 }
             },
             $value
@@ -285,30 +285,27 @@ class TinyEnv
      */
     public static function sysenv(?string $key = null, ?string $value = null)
     {
+        /** @var array<string, string|false|null> */
         static $sysenvCache = [];
-        static $allEnvCache = null;
         if ($key === null) {
-            if ($allEnvCache !== null)
-                return $allEnvCache;
-            $allEnvCache = getenv();
-            return $allEnvCache;
+            return null;
         }
         if (func_num_args() === 1) {
             if (array_key_exists($key, $sysenvCache)) {
-                return $sysenvCache[$key];
+                return is_string($sysenvCache[$key]) || $sysenvCache[$key] === false ? $sysenvCache[$key] : null;
             }
             $val = getenv($key);
             $sysenvCache[$key] = $val;
-            return $val;
+            return $sysenvCache[$key] ?? null;
+
         }
         $ok = putenv("{$key}={$value}");
         if ($ok) {
             $sysenvCache[$key] = $value;
             $_ENV[$key] = $value;
             $_SERVER[$key] = $value;
-            $allEnvCache = null;
         }
-        return $ok;
+        return $ok ? $value : false;
     }
 
     /**
