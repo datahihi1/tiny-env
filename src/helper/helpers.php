@@ -33,13 +33,14 @@ if (!function_exists('validate_env')) {
 
 if (!function_exists('sysenv')) {
     /**
-     * Get or set a system environment variable (like getenv/putenv). But supports cache it.
+     * Get or set a system environment variable .
      *
      * @param string|null $key The key of the environment variable or system variable.
      * @param string|null $value If null, get; else set the env var
      * @return string|false|null Returns value if get, or true/false if set
      */
-    function sysenv(?string $key = null, ?string $value = null) {
+    function sysenv(?string $key = null, ?string $value = null)
+    {
         return TinyEnv::sysenv($key, $value);
     }
 }

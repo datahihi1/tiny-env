@@ -172,19 +172,41 @@ class TinyEnv
         $line = trim($line);
         if ($line === '' || $line[0] === '#' || strpos($line, '=') === false)
             return;
+
         [$key, $value] = explode('=', $line, 2);
         $key = trim($key);
+
         if ($allowedKeys !== null && !in_array($key, $allowedKeys, true))
             return;
-        $value = trim($value, " \t\n\r\0\x0B\"");
 
+        $value = trim($value, " \t\n\r\0\x0B\"");
         $value = preg_replace_callback(
-            '/\${?([A-Z0-9_]+)(:-([^}]+))?}?/i',
-            function (array $matches): string {
-                $var = $matches[1];
-                $default = $matches[3] ?? '';
-                $env = isset($_ENV[$var]) ? $_ENV[$var] : (isset(self::$cache[$var]) ? self::$cache[$var] : null);
-                return is_string($env) ? $env : $default;
+            '/\${?([A-Z0-9_]+)(:?[-?])?([^}]*)}?/i',
+            function (array $m): string {
+                $var = $m[1];
+                $op = $m[2] ?? null;
+                $arg = $m[3] ?? '';
+
+                $env = $_ENV[$var] ?? (self::$cache[$var] ?? null);
+
+                switch ($op) {
+                    case ':-':
+                        return ($env === null || $env === '') ? $arg : $env;
+                    case '-':
+                        return ($env === null) ? $arg : $env;
+                    case '?':
+                        if ($env === null || $env === '') {
+                            throw new Exception("TinyEnv: missing required variable '$var' ($arg)");
+                        }
+                        return $env;
+                    case ':?':
+                        if ($env === null) {
+                            throw new Exception("TinyEnv: missing required variable '$var' ($arg)");
+                        }
+                        return $env;
+                    default:
+                        return ($env !== null) ? $env : '';
+                }
             },
             $value
         );
