@@ -186,26 +186,30 @@ class TinyEnv
                 $var = $m[1];
                 $op = $m[2];
                 $arg = $m[3];
-
                 $env = $_ENV[$var] ?? (self::$cache[$var] ?? null);
-
+                $toString = static function($v): string {
+                    if (is_string($v) || is_numeric($v)) {
+                        return (string)$v;
+                    }
+                    return '';
+                };
                 switch ($op) {
                     case ':-':
-                        return (string)(($env === null || $env === '') ? $arg : $env);
+                        return $toString(($env === null || $env === '') ? $arg : $env);
                     case '-':
-                        return (string)(($env === null) ? $arg : $env);
+                        return $toString(($env === null) ? $arg : $env);
                     case '?':
                         if ($env === null || $env === '') {
                             throw new Exception("TinyEnv: missing required variable '$var' ($arg)");
                         }
-                        return (string)$env;
+                        return $toString($env);
                     case ':?':
                         if ($env === null) {
                             throw new Exception("TinyEnv: missing required variable '$var' ($arg)");
                         }
-                        return (string)$env;
+                        return $toString($env);
                     default:
-                        return (string)(($env !== null) ? $env : '');
+                        return $toString(($env !== null) ? $env : '');
                 }
             },
             $value
@@ -239,7 +243,7 @@ class TinyEnv
 
     /**
      * Parse env value to correct type: bool, int, float, null, string
-     * @param string|null $value
+     * @param mixed $value
      * @return mixed
      */
     private static function parseValue($value)
