@@ -64,7 +64,6 @@ class TinyEnv
     public function load($specificKeys = []): self
     {
         return $this->loadInternal($specificKeys);
-
     }
 
     /**
@@ -79,13 +78,18 @@ class TinyEnv
             return $this;
         $specificKeys = (array) $specificKeys;
         $filter = count($specificKeys) > 0 ? $specificKeys : null;
+        $found = false;
         foreach ($this->rootDirs as $dir) {
             foreach ($this->envFiles as $fileName) {
                 $file = $dir . DIRECTORY_SEPARATOR . $fileName;
                 if (is_file($file) && is_readable($file)) {
                     $this->loadEnvFile($file, $filter);
+                    $found = true;
                 }
             }
+        }
+        if (!$found) {
+            throw new Exception("No .env file found in any root directory: [" . implode(", ", $this->rootDirs) . "] with files [" . implode(", ", $this->envFiles) . "]");
         }
         self::$loaded = true;
         return $this;
