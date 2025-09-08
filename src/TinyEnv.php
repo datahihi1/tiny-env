@@ -176,9 +176,10 @@ class TinyEnv
         $line = trim($line);
         if ($line === '' || $line[0] === '#' || strpos($line, '=') === false)
             return;
-
-        [$key, $value] = explode('=', $line, 2);
-        $key = trim($key);
+        $eqPos = strpos($line, '=');
+        $key = trim(substr($line, 0, $eqPos));
+        $value = ltrim(substr($line, $eqPos + 1));
+        $value = self::stripEnvComment($value);
 
         if ($allowedKeys !== null && !in_array($key, $allowedKeys, true))
             return;
@@ -222,6 +223,29 @@ class TinyEnv
         $parsed = self::parseValue($value);
         $_ENV[$key] = $parsed;
         self::$cache[$key] = $parsed;
+    }
+
+    /**
+     * Remove inline comment (not in quotes) from env value.
+     * @param string $value
+     * @return string
+     */
+    private static function stripEnvComment(string $value): string
+    {
+        $len = strlen($value);
+        $inSingle = false;
+        $inDouble = false;
+        for ($i = 0; $i < $len; $i++) {
+            $c = $value[$i];
+            if ($c === "'" && !$inDouble) {
+                $inSingle = !$inSingle;
+            } elseif ($c === '"' && !$inSingle) {
+                $inDouble = !$inDouble;
+            } elseif ($c === '#' && !$inSingle && !$inDouble) {
+                return rtrim(substr($value, 0, $i));
+            }
+        }
+        return $value;
     }
 
     /**
