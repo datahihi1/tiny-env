@@ -6,7 +6,7 @@ A lightweight .env loader for PHP projects.
 
 ### Installation
 ```bash
-composer require datahihi1/tiny-env:^1.0.10
+composer require datahihi1/tiny-env:^1.0.11
 ```
 
 ### Quick Start
