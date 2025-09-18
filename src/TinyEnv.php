@@ -53,17 +53,17 @@ class TinyEnv
      * Load environment variables from .env files in the specified root directories.
      *
      * Usage:
-     * 
-     *   $env->load(); // Load all variables
-     * 
-     *   $env->load(['key1', 'key2']); // Load only specific keys
+     * - $env->load(); // Load all variables
+     * - $env->load(['key1', 'key2']); // Load only specific keys
+     * - $env->load([], true); // Force reload all variables
      *
      * @param array<int, string>|string $specificKeys The key or array of keys to load. If empty, loads all.
+     * @param bool $forceReload Whether to force reload even if already loaded.
      * @throws Exception If the .env file cannot be read.
      */
-    public function load($specificKeys = []): self
+    public function load($specificKeys = [], bool $forceReload = false): self
     {
-        return $this->loadInternal($specificKeys);
+        return $this->loadInternal($specificKeys, $forceReload);
     }
 
     /**
@@ -192,9 +192,9 @@ class TinyEnv
                 $op = $m[2];
                 $arg = $m[3];
                 $env = $_ENV[$var] ?? (self::$cache[$var] ?? null);
-                $toString = static function($v): string {
+                $toString = static function ($v): string {
                     if (is_string($v) || is_numeric($v)) {
-                        return (string)$v;
+                        return (string) $v;
                     }
                     return '';
                 };
