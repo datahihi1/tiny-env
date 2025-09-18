@@ -12,7 +12,6 @@ class TinyEnvTest extends TestCase
         // Create a mock .env file for testing
         $this->envFile = __DIR__ . '/../.env';
         file_put_contents($this->envFile, "APP_NAME=TinyEnvTest\nAPP_DEBUG=true\n");
-        TinyEnv::setAllowFileWrites(true);
     }
 
     protected function tearDown(): void
@@ -34,23 +33,16 @@ class TinyEnvTest extends TestCase
         $this->assertEquals('default', TinyEnv::env('NOT_EXIST', 'default'));
     }
 
-    public function testSetenvUpdatesEnvFile()
+    public function testLoadAndGetEnvProduction()
     {
-        TinyEnv::setenv('APP_VERSION', '1.0.0');
         $env = new TinyEnv(__DIR__ . '/..');
+        $env->envfiles(['.env.production']);
         $env->load();
 
-        $this->assertEquals('1.0.0', TinyEnv::env('APP_VERSION'));
-
-        // Kiểm tra file .env đã được cập nhật
-        $content = file_get_contents($this->envFile);
-        $this->assertStringContainsString('APP_VERSION=1.0.0', $content);
-    }
-
-    public function testSetenvWithInvalidKeyThrowsException()
-    {
-        $this->expectException(Exception::class);
-        TinyEnv::setenv('invalid key', 'value');
+        $this->assertEquals('TinyEnvProd', TinyEnv::env('APP_NAME'));
+        $this->assertEquals(false, TinyEnv::env('APP_DEBUG'));
+        $this->assertNull(TinyEnv::env('NOT_EXIST'));
+        $this->assertEquals('default', TinyEnv::env('NOT_EXIST', 'default'));
     }
 
     public function testMultipleEnvFilesOverride()
@@ -62,10 +54,7 @@ class TinyEnvTest extends TestCase
         $env->envfiles(['.env', '.env.production'])->load();
 
         $this->assertEquals('TinyEnvProd', TinyEnv::env('APP_NAME'));
-        $this->assertEquals('false', TinyEnv::env('APP_DEBUG'));
-
-        // Dọn dẹp
-        unlink($envProdFile);
+        $this->assertEquals(false, TinyEnv::env('APP_DEBUG'));
     }
 
     public function testLazyLoadWithPrefix()
@@ -85,20 +74,5 @@ class TinyEnvTest extends TestCase
 
         $this->expectNotToPerformAssertions();
         $env->safeLoad();
-    }
-
-    public function testSetenvWithBooleanValue()
-    {
-        TinyEnv::setenv('IS_ENTERPRISE', true);
-        $env = new TinyEnv(__DIR__ . '/..');
-        $env->load();
-
-        $this->assertEquals('true', TinyEnv::env('IS_ENTERPRISE'));
-    }
-
-    public function testSetenvWithInvalidValueThrowsException()
-    {
-        $this->expectException(Exception::class);
-        TinyEnv::setenv('APP_ARRAY', ['not', 'scalar']);
     }
 }

@@ -4,7 +4,7 @@
     </php>
     <bootstrap>vendor/autoload.php</bootstrap>
     <testsuites>
-        <testsuite name="TinyEnv Test Suite">
+        <testsuite name="TinyEnv Tests">
             <directory>./tests</directory>
         </testsuite>
     </testsuites>

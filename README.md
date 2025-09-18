@@ -1,185 +1,112 @@
 # TinyEnv
 
-A simple environment variable loader for PHP applications. Designed for small projects, `TinyEnv` minimizes resource usage while ensuring stable performance. It loads environment variables from `.env` files and provides flexible methods to manage them.
-
 **Note:** This branch is for testing purposes only. For production use, please refer to the [main branch](https://github.com/datahihi1/tiny-env.git)
 
----
+A lightweight .env loader for PHP projects.
 
-### Installation and Setup
+⚡ Fast, 🛡️ Safe, 🎯 Simple — designed for small to medium projects.
 
-#### Install via Composer
-
-Installation is straightforward with [Composer](https://getcomposer.org/):
-
+### Installation
 ```bash
-composer require datahihi1/tiny-env:^dev-test
+composer require datahihi1/tiny-env:dev-test
 ```
 
-Or manually add it to your `composer.json`:
-
-```json
-    "require": {
-        "datahihi1/tiny-env": "dev-test"
-    }
-```
-
-Run `composer install` or `composer update` to download the package.
-
-#### 1. `load()` - Basic Setup
-
-After installing, include Composer's autoloader, create a `TinyEnv` instance, and load the environment variables:
-
+### Quick Start
 ```php
 require 'vendor/autoload.php';
+
 use Datahihi1\TinyEnv\TinyEnv;
 
-// Load from the current directory
 $env = new TinyEnv(__DIR__);
 $env->load();
 
-// Or load with only specific keys
-$env->load(['DB_HOST', 'DB_PORT']);
+echo env('DB_HOST', 'localhost');
 ```
 
-#### 2. Fast Load Option
+.env file:
 
-Use the `fastLoad` option in the constructor to load all variables immediately:
+```env
+DB_HOST=127.0.0.1
+DB_PORT=3306
+```
 
+### Features
+#### 1. load() – Standard load
 ```php
-require 'vendor/autoload.php';
-use Datahihi1\TinyEnv\TinyEnv;
-
-// Load immediately upon instantiation
-$env = new TinyEnv(__DIR__, true);
+$env->load();              // Load all
+$env->load(['DB_HOST']);   // Load specific keys
 ```
-#### 3. `lazy()` - Lazy Load Option
 
-Load only variables matching specific prefixes:
-
+#### 2. Fast load
 ```php
-$env->lazy(['DB']); // Loads only variables starting with DB_
-echo env('DB_HOST'); // Output: localhost
-echo env('NAME', 'N/A'); // Output: N/A (NAME not loaded)
+$env = new TinyEnv(__DIR__, true); // Load immediately
 ```
-#### 4. `safeLoad()` - Safe Load Option
-Load variables but do not check for existence of .env file, allowing for a more flexible setup:
 
+#### 3. Lazy load
 ```php
-$env->safeLoad(); // Loads variables without throwing an error if .env file is missing
+$env->lazy(['DB']); // Load only DB_* variables
 ```
 
-##### Options: `envfiles()` - Specify Multiple `.env` Files
-
-You can specify multiple `.env` files to load in order of priority. Later files will override earlier ones:
-
+#### 4. Safe load
 ```php
-$env->envfiles(['.env.local', '.env.production']);
+$env->safeLoad(); // Ignore missing/unreadable .env files
 ```
 
----
-
-### Usage
-
-`TinyEnv` provides simple methods and helper functions to work with environment variables. Below are examples based on a sample `.env` file:
-
-```
-NAME=TinyEnv
-VERSION=1.0.9
-DB_HOST=localhost
-```
-
-#### 1. `env()` - Retrieve Environment Variables
-
-Use the global `env()` function to get environment variables:
-
+#### 5. Multiple .env files
 ```php
-// Get a specific variable
-echo env('NAME'); // Output: TinyEnv
-
-// Get with a default value if the variable is not set
-echo env('TESTER', 'Datahihi1'); // Output: Datahihi1 (if TESTER is not defined)
-
-// Get all variables
-print_r(env());
+$env->envfiles(['.env', '.env.local', '.env.production']);
 ```
 
-#### 2. `setenv()` - Set or Update Variables
-
-Use `setenv()` to dynamically set or update environment variables. If file writing is enabled (default), it also updates the `.env` file:
-
+- Getting Values
 ```php
-
-setenv('KEY', 'demo'); // Sets KEY=demo in $_ENV and .env file
-echo env('KEY'); // Output: demo
+echo env('NAME');                // Get value
+echo env('NOT_FOUND', 'backup'); // With default
+print_r(env());                  // Get all (in .env file)
+print_r(sysenv());               // Get all system variables
 ```
 
-> **Warning:** In production, always use `TinyEnv::setAllowFileWrites(false);` to prevent accidental or unauthorized changes to your `.env` file.
-
-#### 3. `validate_env()` - Validate Variables
-
-Ensure variables meet specific rules (e.g., `required`, `int`, `bool`, `string`):
-
+- Validation
 ```php
 validate_env([
-    'VERSION' => 'required|string',
-    'DB_PORT' => 'int' // Throws exception if DB_PORT is not an integer
+  'VERSION' => 'required|string',
+  'DB_PORT' => 'int',
+  'APP_DEBUG' => 'bool'
 ]);
 ```
 
-### Example `.env` File
-
-Create a `.env` file in your project root:
-
-```
-NAME=TinyEnv
-VERSION=1.0.8
-DB_HOST=localhost
-DB_PORT=3306
-```
-
-### Full Example
-
-```php
-require 'vendor/autoload.php';
-use Datahihi1\TinyEnv\TinyEnv;
-
-// Initialize and load
-$env = new TinyEnv(__DIR__);
-$env->envfiles(['.env', '.env.local']);
-$env->load();
-
-// Access variables
-echo env('NAME', 'Unknown'); // TinyEnv
-echo env('NOT_FOUND', 'Default'); // Default
-
-// Set a new variable
-setenv('APP_DEBUG', true);
-
-// Validate
-validate_env(['APP_DEBUG' => 'bool']);
-
-```
-
-### Notes
-
-- Ensure the `.env` file and its directory are readable/writable when using `setenv()`.
-- Comments in `.env` files start with `#` and are ignored.
-- Use uppercase letters, numbers, and underscores for variable names (e.g., `APP_KEY`).
-- **In production, always use `TinyEnv::setAllowFileWrites(false);` to prevent accidental or unauthorized changes to your `.env` file.**
----
-
 ### Variable Interpolation
 
-TinyEnv supports variable interpolation within `.env` values. You can reference other variables using `${VAR_NAME}` syntax, and TinyEnv will automatically replace them with their corresponding values when loading:
+TinyEnv supports shell-style interpolation inside .env values:
 
-```
+```env
 DB_HOST=localhost
 DB_PORT=3306
 DB_URL=${DB_HOST}:${DB_PORT}
-DB_USER=${USERNAME:-default_user}
+
+USER_NAME=
+USER=${USER_NAME:-guest}   # default if unset or empty
+ALT_USER=${USER_NAME-guest} # default if unset only
+REQUIRED=${MISSING?Missing variable MISSING}
 ```
 
-In this example, `DB_URL` will be set to `localhost:3306`. Interpolation works recursively and supports any variable defined earlier in the file or already loaded into the environment.
+Result:
+```bash
+DB_URL = "localhost:3306"
 
-If a referenced variable is not defined, it will be replaced with an empty string or the default value if specified (e.g., `USERNAME` in the example above).
+USER = "guest" (because USER_NAME is empty)
+
+ALT_USER = "" (because USER_NAME exists but empty)
+
+REQUIRED → throws Exception
+```
+
+**Notes**
+>
+> - Comments start with `#`.
+> - Variable names: `A-Z`, `0-9`, `_`.
+> - Values are auto-parsed into correct types:
+>   - `"true"` → `true`
+>   - `"false"` → `false`
+>   - `"123"` → `int`
+>   - `"12.3"` → `float`
+>   - `"null"` or empty → `null`
