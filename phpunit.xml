@@ -1,8 +1,7 @@
-<phpunit>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/12.3/phpunit.xsd" bootstrap="vendor/autoload.php">
     <php>
         <ini name="error_reporting" value="-1"/>
     </php>
-    <bootstrap>vendor/autoload.php</bootstrap>
     <testsuites>
         <testsuite name="TinyEnv Tests">
             <directory>./tests</directory>

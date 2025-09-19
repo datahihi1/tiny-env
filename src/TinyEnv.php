@@ -9,7 +9,7 @@ use Exception;
 class TinyEnv
 {
     /** @var bool */
-    protected static $loaded = false;
+    protected $loaded = false;
     /** @var string[] */
     protected $rootDirs;
     /** @var array<string, mixed> */
@@ -33,11 +33,7 @@ class TinyEnv
     }
 
     /**
-     * Specify which env files to load.
-     * 
-     * .env is always loaded first if present.
-     * 
-     * **Note**: This method must be called before load() to take effect. The order of files matters, later files override earlier ones.
+     * Specify which env files to load (in order of priority, later files override earlier ones).
      *
      * @param array<int, string> $files List of .env files to load, e.g., ['.env.local', '.env.production']
      * @return self
@@ -57,17 +53,17 @@ class TinyEnv
      * Load environment variables from .env files in the specified root directories.
      *
      * Usage:
-     * 
-     *   $env->load(); // Load all variables
-     * 
-     *   $env->load(['key1', 'key2']); // Load only specific keys
+     * - $env->load(); // Load all variables
+     * - $env->load(['key1', 'key2']); // Load only specific keys
+     * - $env->load([], true); // Force reload all variables
      *
      * @param array<int, string>|string $specificKeys The key or array of keys to load. If empty, loads all.
+     * @param bool $forceReload Whether to force reload even if already loaded.
      * @throws Exception If the .env file cannot be read.
      */
-    public function load($specificKeys = []): self
+    public function load($specificKeys = [], bool $forceReload = false): self
     {
-        return $this->loadInternal($specificKeys);
+        return $this->loadInternal($specificKeys, $forceReload);
     }
 
     /**
@@ -78,11 +74,10 @@ class TinyEnv
      */
     protected function loadInternal($specificKeys = [], bool $forceReload = false): self
     {
-        // Always reset cache and loaded state before loading new env files
-        self::$cache = [];
-        self::$loaded = false;
+        if ($this->loaded && !$forceReload)
+            return $this;
         $specificKeys = (array) $specificKeys;
-        $filter = count($specificKeys) > 0 ? $specificKeys : null;
+        $filter = !empty($specificKeys) ? $specificKeys : null;
         $found = false;
         foreach ($this->rootDirs as $dir) {
             foreach ($this->envFiles as $fileName) {
@@ -94,9 +89,9 @@ class TinyEnv
             }
         }
         if (!$found) {
-            throw new Exception("No .env file found in any root directory: [" . implode(", ", $this->rootDirs) . "] with files [" . implode(", ", $this->envFiles) . "]");
+            throw new \RuntimeException("No .env file found in any root directory: [" . implode(", ", $this->rootDirs) . "] with files [" . implode(", ", $this->envFiles) . "]");
         }
-        self::$loaded = true;
+        $this->loaded = true;
         return $this;
     }
 
@@ -179,9 +174,11 @@ class TinyEnv
     private function parseAndSetEnvLine(string $line, ?array $allowedKeys = null): void
     {
         $line = trim($line);
-        if ($line === '' || $line[0] === '#' || strpos($line, '=') === false)
+        if ($line === '' || $line[0] === '#')
             return;
         $eqPos = strpos($line, '=');
+        if ($eqPos === false)
+            return;
         $key = trim(substr($line, 0, $eqPos));
         $value = ltrim(substr($line, $eqPos + 1));
         $value = self::stripEnvComment($value);
@@ -197,29 +194,23 @@ class TinyEnv
                 $op = $m[2];
                 $arg = $m[3];
                 $env = $_ENV[$var] ?? (self::$cache[$var] ?? null);
-                $toString = static function($v): string {
-                    if (is_string($v) || is_numeric($v)) {
-                        return (string)$v;
-                    }
-                    return '';
-                };
                 switch ($op) {
                     case ':-':
-                        return $toString(($env === null || $env === '') ? $arg : $env);
+                        return self::stringifyEnvValue(($env === null || $env === '') ? $arg : $env);
                     case '-':
-                        return $toString(($env === null) ? $arg : $env);
+                        return self::stringifyEnvValue(($env === null) ? $arg : $env);
                     case '?':
                         if ($env === null || $env === '') {
                             throw new Exception("TinyEnv: missing required variable '$var' ($arg)");
                         }
-                        return $toString($env);
+                        return self::stringifyEnvValue($env);
                     case ':?':
                         if ($env === null) {
                             throw new Exception("TinyEnv: missing required variable '$var' ($arg)");
                         }
-                        return $toString($env);
+                        return self::stringifyEnvValue($env);
                     default:
-                        return $toString(($env !== null) ? $env : '');
+                        return self::stringifyEnvValue(($env !== null) ? $env : '');
                 }
             },
             $value
@@ -275,6 +266,19 @@ class TinyEnv
     }
 
     /**
+     * Convert a mixed value to string for env substitution without changing logic.
+     * @param mixed $value
+     * @return string
+     */
+    private static function stringifyEnvValue($value): string
+    {
+        if (is_string($value) || is_numeric($value)) {
+            return (string) $value;
+        }
+        return '';
+    }
+
+    /**
      * Parse env value to correct type: bool, int, float, null, string
      * @param mixed $value
      * @return mixed
@@ -314,35 +318,28 @@ class TinyEnv
     }
 
     /**
-     * Get or set a system environment variable (like getenv/putenv), with cache for performance.
+     * Get a system environment variable as string.
+     * 
+     * **Note:** TinyEnv only allows getting 1 system environment variables.
+     * It does not support setting them.
      *
-     * @param string|null $key
-     * @param string|null $value If null, get; else set the env var
-     * @return string|false|null Returns value if get, or true/false if set
+     * @param string $key The key of the environment variable or system variable.
+     * @return string The variable value, or empty string if not set
      */
-    public static function sysenv(?string $key = null, ?string $value = null)
+    public static function sysenv(?string $key): string
     {
-        /** @var array<string, string|false|null> */
+        /** @var array<string, string> */
         static $sysenvCache = [];
         if ($key === null) {
-            return null;
+            return '';
         }
-        if (func_num_args() === 1) {
-            if (array_key_exists($key, $sysenvCache)) {
-                return is_string($sysenvCache[$key]) || $sysenvCache[$key] === false ? $sysenvCache[$key] : null;
-            }
-            $val = getenv($key);
-            $sysenvCache[$key] = $val;
-            return $sysenvCache[$key] ?? null;
-
+        if (array_key_exists($key, $sysenvCache)) {
+            return $sysenvCache[$key];
         }
-        $ok = putenv("{$key}={$value}");
-        if ($ok) {
-            $sysenvCache[$key] = $value;
-            $_ENV[$key] = $value;
-            $_SERVER[$key] = $value;
-        }
-        return $ok ? $value : false;
+        $val = getenv($key);
+        $stringVal = ($val === false) ? '' : (string) $val;
+        $sysenvCache[$key] = $stringVal;
+        return $stringVal;
     }
 
     /**

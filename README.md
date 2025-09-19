@@ -110,3 +110,40 @@ REQUIRED → throws Exception
 >   - `"123"` → `int`
 >   - `"12.3"` → `float`
 >   - `"null"` or empty → `null`
+
+### Run Tests
+
+#### PHPUnit:
+
+1. With PHPUnit installed globally:
+```bash
+phpunit --colors=always tests
+```
+
+2. With PHPUnit via Composer:
+```bash
+vendor/bin/phpunit --colors=always tests
+```
+
+3. With PHPUnit via PHAR:
+```bash
+/path/to/phpunit.phar --colors=always tests
+```
+
+#### PHPStan:
+
+1. With PHPStan installed globally:
+
+```bash
+phpstan analyse src --level=max
+```
+
+2. With PHPStan via Composer:
+```bash
+vendor/bin/phpstan analyse src --level=max
+```
+
+3. With PHPStan via PHAR:
+```bash
+/path/to/phpstan.phar analyse src --level=max
+```

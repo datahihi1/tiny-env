@@ -1,0 +1,39 @@
+name: PHPUnit Tests
+
+on:
+  push:
+    branches: test 
+  pull_request:
+    branches: test
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - php-version: 7.1
+            phpunit-version: "7.5"
+          - php-version: 8.4
+            phpunit-version: "12.3"
+    name: PHP ${{ matrix.php-version }} - phpunit ${{ matrix.phpunit-version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          coverage: none
+
+      - name: Install dependencies
+        run: |
+          composer install --no-interaction --prefer-dist
+          composer remove phpunit/phpunit --dev || true
+          composer require --dev phpunit/phpunit:^${{ matrix.phpunit-version }} --no-interaction || true
+
+      - name: Run PHPUnit
+        run: vendor/bin/phpunit tests --colors=always

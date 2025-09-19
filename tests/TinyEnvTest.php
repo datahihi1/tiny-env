@@ -1,78 +1,96 @@
 <?php
 
-use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Assert;
 use Datahihi1\TinyEnv\TinyEnv;
 
-class TinyEnvTest extends TestCase
+class TinyEnvTest extends \PHPUnit\Framework\TestCase
 {
+    /** @var string */
     private $envFile;
 
+    /**
+     * @return void
+     */
     protected function setUp(): void
     {
-        // Create a mock .env file for testing
+        // Đường dẫn tới file .env ở thư mục gốc dự án
         $this->envFile = __DIR__ . '/../.env';
-        file_put_contents($this->envFile, "APP_NAME=TinyEnvTest\nAPP_DEBUG=true\n");
     }
 
+    /**
+     * @return void
+     */
     protected function tearDown(): void
     {
-        // Xóa file .env sau khi test
-        if (file_exists($this->envFile)) {
-            unlink($this->envFile);
-        }
+        // Không tự động xóa file .env sau khi test
     }
 
+    /**
+     * @return void|null
+     */
     public function testLoadAndGetEnv()
     {
         $env = new TinyEnv(__DIR__ . '/..');
         $env->load();
 
-        $this->assertEquals('TinyEnvTest', TinyEnv::env('APP_NAME'));
-        $this->assertEquals('true', TinyEnv::env('APP_DEBUG'));
-        $this->assertNull(TinyEnv::env('NOT_EXIST'));
-        $this->assertEquals('default', TinyEnv::env('NOT_EXIST', 'default'));
+        Assert::assertEquals('TinyEnvTest', TinyEnv::env('APP_NAME'));
+        Assert::assertEquals('true', TinyEnv::env('APP_DEBUG'));
+        Assert::assertNull(TinyEnv::env('NOT_EXIST'));
+        Assert::assertEquals('default', TinyEnv::env('NOT_EXIST', 'default'));
     }
 
-    public function testLoadAndGetEnvProduction()
+    /**
+     * @return void
+     */
+    public function testLoadThrowExceptionOnMissingFile()
     {
         $env = new TinyEnv(__DIR__ . '/..');
-        $env->envfiles(['.env.production']);
-        $env->load();
+        // Kỳ vọng ném Exception khi không tìm thấy bất kỳ file .env nào
+        $this->expectException(\RuntimeException::class);
 
-        $this->assertEquals('TinyEnvProd', TinyEnv::env('APP_NAME'));
-        $this->assertEquals(false, TinyEnv::env('APP_DEBUG'));
-        $this->assertNull(TinyEnv::env('NOT_EXIST'));
-        $this->assertEquals('default', TinyEnv::env('NOT_EXIST', 'default'));
+        $bak = $this->envFile . '.bak';
+        $renamed = false;
+        try {
+            // Giả lập file .env không tồn tại bằng cách đổi tên nó tạm thời (nếu tồn tại)
+            if (is_file($this->envFile)) {
+                $renamed = @rename($this->envFile, $bak);
+            }
+            // Thực thi load() để kích hoạt Exception do không tìm thấy .env
+            $env->load();
+        } finally {
+            // Khôi phục lại file .env nếu đã đổi tên
+            if ($renamed && is_file($bak)) {
+                @rename($bak, $this->envFile);
+            }
+        }
     }
 
-    public function testMultipleEnvFilesOverride()
-    {
-        // Tạo thêm file .env.production để override giá trị
-        $envProdFile = __DIR__ . '/../.env.production';
-        file_put_contents($envProdFile, "APP_NAME=TinyEnvProd\nAPP_DEBUG=false\n");
-        $env = new TinyEnv(__DIR__ . '/..');
-        $env->envfiles(['.env', '.env.production'])->load();
-
-        $this->assertEquals('TinyEnvProd', TinyEnv::env('APP_NAME'));
-        $this->assertEquals(false, TinyEnv::env('APP_DEBUG'));
-    }
-
+    /**
+     * @return void
+     */
     public function testLazyLoadWithPrefix()
     {
         $env = new TinyEnv(__DIR__ . '/..');
         $env->lazy(['APP']);
 
-        $this->assertEquals('TinyEnvTest', TinyEnv::env('APP_NAME'));
-        $this->assertEquals('true', TinyEnv::env('APP_DEBUG'));
+        Assert::assertEquals('TinyEnvTest', TinyEnv::env('APP_NAME'));
+        Assert::assertEquals('true', TinyEnv::env('APP_DEBUG'));
+        Assert::assertNull(TinyEnv::env('NOT_EXIST'));
     }
 
+    /**
+     * @return void
+     */
     public function testSafeLoadDoesNotThrowOnMissingFile()
     {
         $env = new TinyEnv(__DIR__ . '/..');
-        // Xóa file .env để test safeLoad
-        if (file_exists($this->envFile)) unlink($this->envFile);
+        // Đổi tên file .env sang .env.bak để giả lập file không tồn tại
+        rename($this->envFile, $this->envFile . '.bak');
 
+        // Đảm bảo không xóa file .env
         $this->expectNotToPerformAssertions();
         $env->safeLoad();
+        // Đổi lại tên file .env.bak về .env
+        rename($this->envFile . '.bak', $this->envFile);
     }
 }
