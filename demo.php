@@ -9,6 +9,8 @@ $env->load();
 
 var_dump(env());
 
+var_dump(sysenv());
+
 if (env('APP_DEBUG')) {
     echo "Debug mode is ON\n";
 }

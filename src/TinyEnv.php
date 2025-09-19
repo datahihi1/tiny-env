@@ -318,24 +318,30 @@ class TinyEnv
     }
 
     /**
-     * Get a system environment variable as string.
+     * Get a system environment variable as string or all system environment variables.
      * 
-     * **Note:** TinyEnv only allows getting 1 system environment variables.
+     * **Note:** TinyEnv only allows getting system environment variables.
      * It does not support setting them.
      *
-     * @param string $key The key of the environment variable or system variable.
-     * @return string The variable value, or empty string if not set
+     * @param string|null $key The key of the environment variable or system variable.
+     * @return string|array<string, string> The variable value, or all variables if $key is null.
      */
-    public static function sysenv(?string $key): string
+    public static function sysenv(?string $key = null)
     {
         /** @var array<string, string> */
         static $sysenvCache = [];
+
         if ($key === null) {
-            return '';
+            if (empty($sysenvCache)) {
+                $sysenvCache = getenv() ?: [];
+            }
+            return $sysenvCache;
         }
+
         if (array_key_exists($key, $sysenvCache)) {
             return $sysenvCache[$key];
         }
+
         $val = getenv($key);
         $stringVal = ($val === false) ? '' : (string) $val;
         $sysenvCache[$key] = $stringVal;

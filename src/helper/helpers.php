@@ -33,15 +33,12 @@ if (!function_exists('validate_env')) {
 
 if (!function_exists('sysenv')) {
     /**
-     * Get a system environment variable as string.
+     * Get a system environment variable as string, or all system env variables.
      *
-     * **Note:** TinyEnv only allows getting 1 system environment variables. 
-     * It does not support setting them.
-     *
-     * @param string $key The key of the environment variable or system variable.
-     * @return string The variable value, or empty string if not set
+     * @param string|null $key The key of the environment variable or system variable.
+     * @return array<string, string>|string The variable value, or all variables if $key is null
      */
-    function sysenv(?string $key): string
+    function sysenv(?string $key = null)
     {
         return TinyEnv::sysenv($key);
     }
