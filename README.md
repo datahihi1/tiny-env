@@ -6,7 +6,7 @@ A lightweight .env loader for PHP projects.
 
 ### Installation
 ```bash
-composer require datahihi1/tiny-env:^1.0.11
+composer require datahihi1/tiny-env:^1.0.12
 ```
 
 ### Quick Start
@@ -64,13 +64,7 @@ print_r(sysenv());               // Get all system variables
 ```
 
 - Validation
-```php
-validate_env([
-  'VERSION' => 'required|string',
-  'DB_PORT' => 'int',
-  'APP_DEBUG' => 'bool'
-]);
-```
+For validation, consider using [tiny-env-validator](https://github.com/datahihi1/tiny-env-validator.git).
 
 ### Variable Interpolation
 
@@ -103,8 +97,9 @@ REQUIRED → throws Exception
 > - Comments start with `#`.
 > - Variable names: `A-Z`, `0-9`, `_`.
 > - Values are auto-parsed into correct types:
->   - `"true"` → `true`
->   - `"false"` → `false`
+>   - `"true", "yes", "on"` → `true`
+>   - `"false", "no", "off"` → `false`
 >   - `"123"` → `int`
 >   - `"12.3"` → `float`
 >   - `"null"` or empty → `null`
+> - TinyEnv considers yes/no, on/off to be boolean values.

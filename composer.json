@@ -19,5 +19,8 @@
     ],
     "require": {
       "php": ">=7.1"
+    },
+    "suggest": {
+        "datahihi1/tiny-env-validator": "Validation helpers for tiny-env: rules and helpers to validate .env values"
     }
 }
