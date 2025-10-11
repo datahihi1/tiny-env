@@ -1,4 +1,5 @@
 <?php
+
 namespace Datahihi1\TinyEnv;
 
 use Exception;
@@ -42,11 +43,11 @@ class TinyEnv
      */
     public function envfiles(array $files): self
     {
-        $files = array_unique($files);
+        $files = array_values(array_unique($files));
         if (($i = array_search('.env', $files, true)) !== false) {
             unset($files[$i]);
-            array_unshift($files, '.env');
         }
+        array_unshift($files, '.env');
         $this->envFiles = array_values($files);
         return $this;
     }
@@ -85,7 +86,7 @@ class TinyEnv
         $filter = !empty($specificKeys) ? $specificKeys : null;
         $found = false;
         foreach ($this->rootDirs as $dir) {
-            foreach ($this->envFiles as $fileName) {
+            foreach (array_reverse($this->envFiles) as $fileName) {
                 $file = $dir . DIRECTORY_SEPARATOR . $fileName;
                 if (is_file($file) && is_readable($file)) {
                     $this->loadEnvFile($file, $filter);
@@ -112,7 +113,7 @@ class TinyEnv
         if (empty($prefixes))
             return $this;
         foreach ($this->rootDirs as $dir) {
-            foreach ($this->envFiles as $fileName) {
+            foreach (array_reverse($this->envFiles) as $fileName) {
                 $file = $dir . DIRECTORY_SEPARATOR . $fileName;
                 if (!is_file($file) || !is_readable($file))
                     continue;
@@ -127,12 +128,9 @@ class TinyEnv
                     $key = trim($key);
                     foreach ($prefixes as $prefix) {
                         if (stripos($key, $prefix) === 0) {
-                            if (!array_key_exists($key, $_ENV)) {
-                                try {
-                                    $this->parseAndSetEnvLine($line, null);
-                                } catch (Exception $e) {
-                                    continue;
-                                }
+                            try {
+                                $this->parseAndSetEnvLine($line, null);
+                            } catch (Exception $e) {
                             }
                             break;
                         }
@@ -155,7 +153,7 @@ class TinyEnv
         $specificKeys = (array) $specificKeys;
         $filter = count($specificKeys) > 0 ? $specificKeys : null;
         foreach ($this->rootDirs as $dir) {
-            foreach ($this->envFiles as $fileName) {
+            foreach (array_reverse($this->envFiles) as $fileName) {
                 $file = $dir . DIRECTORY_SEPARATOR . $fileName;
                 if (!is_file($file) || !is_readable($file))
                     continue;
@@ -179,12 +177,12 @@ class TinyEnv
      * 
      * Optionally filter by allowed keys.
      *
-     * @param string $line
-     * @param array<int, string>|null $allowedKeys
+     * @param string $line The line to parse.
+     * @param array<int, string>|null $allowedKeys Optional array of allowed keys to filter. If null, all keys are allowed.
+     * @param array<string, string>|null $rawMap Map of raw key=>value from the .env file for cross-line substitution.
      */
-    private function parseAndSetEnvLine(string $line, ?array $allowedKeys = null): void
+    private function parseAndSetEnvLine(string $line, ?array $allowedKeys = null, ?array $rawMap = null): void
     {
-        // Ensure $line is a string for static analysis and safety
         $line = trim((string) $line);
         if ($line === '' || $line[0] === '#')
             return;
@@ -202,7 +200,6 @@ class TinyEnv
         }
 
         $trimmedValueForCheck = ltrim(substr($line, $eqPos + 1));
-        // If value begins with an unquoted '=' (e.g. KEY==value) treat as malformed
         if ($trimmedValueForCheck !== '' && $trimmedValueForCheck[0] === '=') {
             if (!isset($trimmedValueForCheck[1]) || ($trimmedValueForCheck[1] !== '"' && $trimmedValueForCheck[1] !== "'")) {
                 throw new Exception("Malformed .env line (unexpected '=' after key) in: $line");
@@ -215,53 +212,73 @@ class TinyEnv
         $value = trim($value, " \t\n\r\0\x0B\"");
         $visited = [];
         $allowedOps = ['', ':-', '-', '?', ':?'];
-        $value = preg_replace_callback(
-            '/\${?([A-Z0-9_]+)(:?[-?])?([^}]*)}?/i',
-            function (array $m) use (&$visited, $allowedOps): string {
-                $var = $m[1];
-                $op = $m[2];
-                $arg = $m[3];
 
-                if (!in_array($op, $allowedOps, true)) {
-                    throw new Exception("TinyEnv: invalid substitution operator '$op' in " . $m[0]);
+        $replacer = function (array $m) {
+            return '';
+        };
+        $replacer = function (array $m) use (&$visited, $allowedOps, $rawMap, &$replacer): string {
+            $var = isset($m[1]) && is_scalar($m[1]) ? (string) $m[1] : '';
+            $op  = isset($m[2]) && is_scalar($m[2]) ? (string) $m[2] : '';
+            $arg = isset($m[3]) && is_scalar($m[3]) ? (string) $m[3] : '';
+
+            $msgOp = isset($m[0]) && is_scalar($m[0]) ? (string) $m[0] : '';
+            if (!in_array($op, $allowedOps, true)) {
+                throw new Exception("TinyEnv: invalid substitution operator '{$op}' in {$msgOp}");
+            }
+
+            if (in_array($var, $visited, true)) {
+                $chain = implode(' -> ', array_merge($visited, [$var]));
+                throw new Exception("TinyEnv: recursive variable substitution detected: {$chain}");
+            }
+
+            $visited[] = $var;
+
+            /** @var string|int|null $env */
+            $env = self::$cache[$var] ?? ($_ENV[$var] ?? null);
+
+            if ($env === null && is_array($rawMap) && array_key_exists($var, $rawMap)) {
+                $rawVal = $rawMap[$var];
+                if (strpos((string)$rawVal, '${') !== false) {
+                    $env = preg_replace_callback(
+                        '/\${?([A-Z0-9_]+)(:?[-?])?([^}]*)}?/i',
+                        $replacer,
+                        (string)$rawVal
+                    );
+                } else {
+                    $env = (string)$rawVal;
                 }
+            }
 
-                if (in_array($var, $visited, true)) {
-                    $chain = implode(' -> ', array_merge($visited, [$var]));
-                    throw new Exception("TinyEnv: recursive variable substitution detected: $chain");
-                }
+            switch ($op) {
+                case ':-':
+                    $resolved = ($env === null || $env === '') ? $arg : $env;
+                    break;
+                case '-':
+                    $resolved = ($env === null) ? $arg : $env;
+                    break;
+                case '?':
+                    if ($env === null || $env === '') {
+                        throw new Exception("TinyEnv: missing required variable '{$var}' ({$arg})");
+                    }
+                    $resolved = $env;
+                    break;
+                case ':?':
+                    if ($env === null) {
+                        throw new Exception("TinyEnv: missing required variable '{$var}' ({$arg})");
+                    }
+                    $resolved = $env;
+                    break;
+                default:
+                    $resolved = ($env !== null) ? $env : '';
+            }
 
-                $visited[] = $var;
-                $env = $_ENV[$var] ?? (self::$cache[$var] ?? null);
-                switch ($op) {
-                    case ':-':
-                        $resolved = ($env === null || $env === '') ? $arg : $env;
-                        break;
-                    case '-':
-                        $resolved = ($env === null) ? $arg : $env;
-                        break;
-                    case '?':
-                        if ($env === null || $env === '') {
-                            throw new Exception("TinyEnv: missing required variable '$var' ($arg)");
-                        }
-                        $resolved = $env;
-                        break;
-                    case ':?':
-                        if ($env === null) {
-                            throw new Exception("TinyEnv: missing required variable '$var' ($arg)");
-                        }
-                        $resolved = $env;
-                        break;
-                    default:
-                        $resolved = ($env !== null) ? $env : '';
-                }
+            $out = self::stringifyEnvValue($resolved);
+            array_pop($visited);
+            return $out;
+        };
 
-                $out = self::stringifyEnvValue($resolved);
-                array_pop($visited);
-                return $out;
-            },
-            $value
-        );
+
+        $value = preg_replace_callback('/\${?([A-Z0-9_]+)(:?[-?])?([^}]*)}?/i', $replacer, $value);
 
         $parsed = self::parseValue($value);
         $_ENV[$key] = $parsed;
@@ -342,8 +359,21 @@ class TinyEnv
         $lines = $this->readEnvFileLines($file, false);
         if ($lines === false)
             throw new Exception("Failed to read: $file");
+
+        $rawMap = [];
         foreach ($lines as $line) {
-            $this->parseAndSetEnvLine($line, $filter);
+            $ln = rtrim($line, "\r\n");
+            if ($ln === '' || preg_match('/^\s*#/', $ln)) continue;
+            $stripped = self::stripEnvComment($ln);
+            $parts = explode('=', $stripped, 2);
+            if (count($parts) < 2) continue;
+            $k = trim($parts[0]);
+            $v = isset($parts[1]) ? ltrim($parts[1]) : '';
+            $rawMap[$k] = $v;
+        }
+
+        foreach ($lines as $line) {
+            $this->parseAndSetEnvLine($line, $filter, $rawMap);
         }
         return true;
     }
@@ -396,18 +426,15 @@ class TinyEnv
     {
         if ($key === null)
             return $_ENV;
-        // If the value is already cached explicitly, return it
+
         if (array_key_exists($key, self::$cache)) {
             return self::parseValue(self::$cache[$key]);
         }
 
-        // If the value exists in $_ENV (may be null), return it
         if (array_key_exists($key, $_ENV)) {
             return self::parseValue($_ENV[$key]);
         }
 
-        // If a default was explicitly provided, persist it so subsequent calls
-        // (or validators) can see the value.
         if (func_num_args() > 1) {
             $parsedDefault = self::parseValue($default);
             $_ENV[$key] = $parsedDefault;
@@ -415,7 +442,6 @@ class TinyEnv
             return $parsedDefault;
         }
 
-        // No value found and no explicit default provided
         return self::parseValue($default);
     }
 

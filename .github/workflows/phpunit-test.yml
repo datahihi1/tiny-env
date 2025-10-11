@@ -36,4 +36,4 @@ jobs:
           composer require --dev phpunit/phpunit:^${{ matrix.phpunit-version }} --no-interaction || true
 
       - name: Run PHPUnit
-        run: vendor/bin/phpunit tests --colors=always
+        run: vendor/bin/phpunit tests --display-deprecations --display-warnings --testdox --colors=always

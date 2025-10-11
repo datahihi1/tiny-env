@@ -3,9 +3,7 @@ require_once (__DIR__ . '/vendor/autoload.php');
 
 use Datahihi1\TinyEnv\TinyEnv;
 
-$env = new TinyEnv(__DIR__); // Initialize TinyEnv with the current directory
-$env->envfiles(['.env', '.env.production']); 
-$env->load(); // Only load APP_DEBUG lazily
+$env = new TinyEnv(__DIR__, true ); // Initialize TinyEnv with the current directory
 
 var_dump(env());
 

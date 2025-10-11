@@ -13,7 +13,7 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
      */
     protected function setUp(): void
     {
-        // Đường dẫn tới file .env ở thư mục gốc dự án
+        // Direction to the .env file in the project root
         $this->envFile = __DIR__ . '/../.env';
     }
 
@@ -22,7 +22,7 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
      */
     protected function tearDown(): void
     {
-        // Không tự động xóa file .env sau khi test
+        // Do not auto-delete .env file after tests
     }
 
     protected function resetEnvState(): void
@@ -52,11 +52,14 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
         $this->resetEnvState();
         // envfiles order: later files override earlier ones. We pass production
         // and .env; production should override values.
-        $env = new TinyEnv(__DIR__ . '/..', true);
+        $env = new TinyEnv(__DIR__ . '/..');
         $env->envfiles(['.env.production', '.env']);
+        // use safeLoad here so tests that expect a successful load are not
+        // interrupted by the recursion detection test data (VAR1<->VAR2)
+        $env->safeLoad();
         // fastLoad true triggers load in constructor; app name should come from production
-         // always prioritize .env , .env.production is also considered as override
-        $this->assertEquals('TinyEnvTest', TinyEnv::env('APP_NAME'));
+        // always prioritize .env , .env.production is also considered as override
+        $this->assertEquals('TinyEnv', TinyEnv::env('APP_NAME'));
         $this->assertTrue(TinyEnv::env('APP_DEBUG'));
     }
 
@@ -71,13 +74,14 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
         $this->assertNull(TinyEnv::env('APP_NAME'));
     }
 
-    // public function testRecursiveSubstitutionThrows()
-    // {
-    //     $this->resetEnvState();
-    //     $env = new TinyEnv(__DIR__ . '/..');
-    //     $env->load();
-    //     $this->expectException(Exception::class);
-    // }
+    public function testRecursiveSubstitutionThrows()
+    {
+        $this->resetEnvState();
+        $env = new TinyEnv(__DIR__ . '/..');
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessageMatches('/recursive/i');
+        $env->load();
+    }
 
     public function testMalformedLinesLoadVsSafeLoad()
     {
@@ -133,7 +137,7 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
         $env->lazy(['APP']);
 
         // lazy loads only keys with APP prefix
-        Assert::assertEquals('TinyEnvTest', TinyEnv::env('APP_NAME'));
+        Assert::assertEquals('TinyEnv', TinyEnv::env('APP_NAME'));
         Assert::assertTrue(TinyEnv::env('APP_DEBUG'));
 
         // Non-APP keys should not be present unless requested
@@ -144,14 +148,14 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
     {
         $this->resetEnvState();
         $env = new TinyEnv(__DIR__ . '/..');
-        // Đổi tên file .env sang .env.bak để giả lập file không tồn tại
+        // Rename .env to simulate missing file
         $bak = $this->envFile . '.bak';
         $renamed = false;
         try {
             if (is_file($this->envFile)) {
                 $renamed = @rename($this->envFile, $bak);
             }
-            // Đảm bảo không ném
+            // safeLoad should not throw
             $this->expectNotToPerformAssertions();
             $env->safeLoad();
         } finally {
@@ -175,10 +179,11 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
     public function testLoadAndGetEnv()
     {
         $env = new TinyEnv(__DIR__ . '/..');
-        $env->load();
+        // use safeLoad to tolerate the recursive entries in the fixture
+        $env->safeLoad();
 
         // Basic string and boolean (note: parseValue converts 'true' string to boolean true)
-        Assert::assertEquals('TinyEnvTest', TinyEnv::env('APP_NAME'));
+        Assert::assertEquals('TinyEnv', TinyEnv::env('APP_NAME'));
         Assert::assertTrue(TinyEnv::env('APP_DEBUG'));
 
         // Not exist returns null by default
@@ -212,20 +217,20 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
     public function testLoadThrowExceptionOnMissingFile()
     {
         $env = new TinyEnv(__DIR__ . '/..');
-        // Kỳ vọng ném Exception khi không tìm thấy bất kỳ file .env nào
+        // Expect RuntimeException when .env is missing
         $this->expectException(\RuntimeException::class);
 
         $bak = $this->envFile . '.bak';
         $renamed = false;
         try {
-            // Giả lập file .env không tồn tại bằng cách đổi tên nó tạm thời (nếu tồn tại)
+            // Simulate missing .env by renaming it temporarily (if it exists)
             if (is_file($this->envFile)) {
                 $renamed = @rename($this->envFile, $bak);
             }
-            // Thực thi load() để kích hoạt Exception do không tìm thấy .env
+            // Execute load() to trigger Exception due to missing .env
             $env->load();
         } finally {
-            // Khôi phục lại file .env nếu đã đổi tên
+            // Restore .env if it was renamed
             if ($renamed && is_file($bak)) {
                 @rename($bak, $this->envFile);
             }
