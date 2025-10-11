@@ -396,8 +396,27 @@ class TinyEnv
     {
         if ($key === null)
             return $_ENV;
-        $val = self::$cache[$key] ?? $_ENV[$key] ?? $default;
-        return self::parseValue($val);
+        // If the value is already cached explicitly, return it
+        if (array_key_exists($key, self::$cache)) {
+            return self::parseValue(self::$cache[$key]);
+        }
+
+        // If the value exists in $_ENV (may be null), return it
+        if (array_key_exists($key, $_ENV)) {
+            return self::parseValue($_ENV[$key]);
+        }
+
+        // If a default was explicitly provided, persist it so subsequent calls
+        // (or validators) can see the value.
+        if (func_num_args() > 1) {
+            $parsedDefault = self::parseValue($default);
+            $_ENV[$key] = $parsedDefault;
+            self::$cache[$key] = $parsedDefault;
+            return $parsedDefault;
+        }
+
+        // No value found and no explicit default provided
+        return self::parseValue($default);
     }
 
     /**
