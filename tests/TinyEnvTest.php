@@ -38,7 +38,92 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
             $prop->setAccessible(true);
             $prop->setValue([]);
         }
+        // Clear fileLinesCache as well to avoid cross-test caching
+        if ($rc->hasProperty('fileLinesCache')) {
+            $prop = $rc->getProperty('fileLinesCache');
+            $prop->setAccessible(true);
+            $prop->setValue([]);
+        }
         // Ensure .env is loaded fresh in next test
+    }
+
+    public function testEnvfilesPriorityAndFastLoad()
+    {
+        $this->resetEnvState();
+        // envfiles order: later files override earlier ones. We pass production
+        // and .env; production should override values.
+        $env = new TinyEnv(__DIR__ . '/..', true);
+        $env->envfiles(['.env.production', '.env']);
+        // fastLoad true triggers load in constructor; app name should come from production
+         // always prioritize .env , .env.production is also considered as override
+        $this->assertEquals('TinyEnvTest', TinyEnv::env('APP_NAME'));
+        $this->assertTrue(TinyEnv::env('APP_DEBUG'));
+    }
+
+    public function testLoadWithSpecificKeys()
+    {
+        $this->resetEnvState();
+        $env = new TinyEnv(__DIR__ . '/..');
+        // Load only MY_TEXT
+        $env->load(['MY_TEXT']);
+        $this->assertSame(8.7, TinyEnv::env('MY_TEXT'));
+        // APP_NAME should not be loaded
+        $this->assertNull(TinyEnv::env('APP_NAME'));
+    }
+
+    // public function testRecursiveSubstitutionThrows()
+    // {
+    //     $this->resetEnvState();
+    //     $env = new TinyEnv(__DIR__ . '/..');
+    //     $env->load();
+    //     $this->expectException(Exception::class);
+    // }
+
+    public function testMalformedLinesLoadVsSafeLoad()
+    {
+        $this->resetEnvState();
+        // Create a temp dir with a malformed .env
+        $tmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'tinyenv_test_' . uniqid();
+        mkdir($tmp);
+        $bad = "OK=1\nBADLINE\nANOTHER=2\nBAD==x\n";
+        file_put_contents($tmp . DIRECTORY_SEPARATOR . '.env', $bad);
+        try {
+            $env = new TinyEnv($tmp);
+            // load should throw on malformed lines
+            $this->expectException(Exception::class);
+            $env->load();
+        } finally {
+            // safeLoad should not throw
+            $env2 = new TinyEnv($tmp);
+            $env2->safeLoad();
+            $this->assertSame(1, TinyEnv::env('OK'));
+            // cleanup
+            @unlink($tmp . DIRECTORY_SEPARATOR . '.env');
+            @rmdir($tmp);
+        }
+    }
+
+    public function testLazyCaching()
+    {
+        $this->resetEnvState();
+        $env = new TinyEnv(__DIR__ . '/..');
+        // first lazy() should populate internal fileLinesCache
+        $env->lazy(['APP']);
+        $rc = new \ReflectionClass(TinyEnv::class);
+        $prop = $rc->getProperty('fileLinesCache');
+        $prop->setAccessible(true);
+        $cache = $prop->getValue();
+        $this->assertNotEmpty($cache);
+        // calling lazy again should still work and the cache remains
+        $env->lazy(['MY']);
+        $this->assertNotEmpty($prop->getValue());
+    }
+
+    public function testSetCacheAndEnvGetter()
+    {
+        $this->resetEnvState();
+        TinyEnv::setCache('X_TEST', '42');
+        $this->assertSame(42, TinyEnv::env('X_TEST'));
     }
 
     public function testLazyLoadWithPrefixAndPersistence()
