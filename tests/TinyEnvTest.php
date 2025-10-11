@@ -79,7 +79,11 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
         $this->resetEnvState();
         $env = new TinyEnv(__DIR__ . '/..');
         $this->expectException(Exception::class);
-        $this->expectExceptionMessageMatches('/recursive/i');
+        if (method_exists($this, 'expectExceptionMessageMatches')) {
+            $this->expectExceptionMessageMatches('/recursive variable substitution/');
+        } else {
+            $this->expectExceptionMessage('recursive variable substitution');
+        }
         $env->load();
     }
 
