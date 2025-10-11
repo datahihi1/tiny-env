@@ -105,11 +105,12 @@ REQUIRED → throws Exception
 > - Comments start with `#`.
 > - Variable names: `A-Z`, `0-9`, `_`.
 > - Values are auto-parsed into correct types:
->   - `"true"` → `true`
->   - `"false"` → `false`
+>   - `"true", "yes", "on"` → `true`
+>   - `"false", "no", "off"` → `false`
 >   - `"123"` → `int`
->   - `"12.3"` → `float`
+>   - `"12.3"` → `float` or `double`
 >   - `"null"` or empty → `null`
+> - TinyEnv considers yes/no, on/off to be boolean values.
 
 ### Run Tests
 

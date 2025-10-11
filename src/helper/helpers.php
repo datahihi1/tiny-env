@@ -1,6 +1,5 @@
 <?php
 use Datahihi1\TinyEnv\TinyEnv;
-use Datahihi1\TinyEnv\Validator;
 
 if (!function_exists('env')) {
     /**
@@ -15,19 +14,6 @@ if (!function_exists('env')) {
     function env(?string $key = null, $default = null)
     {
         return TinyEnv::env($key, $default);
-    }
-}
-
-if (!function_exists('validate_env')) {
-    /**
-     * Validate the environment variables using the provided rules.
-     *
-     * @param array<string, array<string>|string> $rules The validation rules.
-     * @throws Exception If validation fails.
-     */
-    function validate_env(array $rules): void
-    {
-        Validator::validate($rules);
     }
 }
 
