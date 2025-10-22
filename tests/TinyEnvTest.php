@@ -36,13 +36,13 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
         if ($rc->hasProperty('cache')) {
             $prop = $rc->getProperty('cache');
             $prop->setAccessible(true);
-            $prop->setValue([]);
+            $prop->setValue(null, []);
         }
         // Clear fileLinesCache as well to avoid cross-test caching
         if ($rc->hasProperty('fileLinesCache')) {
             $prop = $rc->getProperty('fileLinesCache');
             $prop->setAccessible(true);
-            $prop->setValue([]);
+            $prop->setValue(null, []);
         }
         // Ensure .env is loaded fresh in next test
     }

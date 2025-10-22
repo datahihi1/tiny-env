@@ -18,7 +18,7 @@ jobs:
           - php-version: 7.1
             phpunit-version: "7.5"
           - php-version: 8.4
-            phpunit-version: "12.3"
+            phpunit-version: "12.4"
     name: PHP ${{ matrix.php-version }} - phpunit ${{ matrix.phpunit-version }}
     steps:
       - uses: actions/checkout@v4
