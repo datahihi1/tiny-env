@@ -5,7 +5,8 @@
     "license": "MIT",
     "autoload": {
         "files": [
-            "TinyEnv.min.php"
+            "TinyEnv.min.php",
+            "helpers.php"
         ]
     },
     "authors": [
