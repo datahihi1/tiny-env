@@ -9,36 +9,57 @@ use Exception;
  */
 class TinyEnv
 {
-    /** @var bool */
+    /**
+     *
+     *
+     * @var bool
+     */
     protected $loaded = false;
-    /** @var string[] */
+    /**
+     *
+     *
+     * @var string[]
+     */
     protected $rootDirs;
-    /** @var array<string, mixed> */
+    /**
+     *
+     *
+     * @var array<string, mixed>
+     */
     protected static $cache = [];
-    /** @var array<string, string[]> */
+    /**
+     *
+     *
+     * @var array<string, string[]>
+     */
     protected static $fileLinesCache = [];
-    /** @var string[] */
+    /**
+     *
+     *
+     * @var string[]
+     */
     protected $envFiles = ['.env'];
 
     /**
      * Constructor to initialize the TinyEnv instance.
      *
      * @param string|string[] $rootDirs The root directory to load files from.
-     * @param bool $fastLoad Whether to load all the environment variables immediately.
-     * 
+     * @param bool            $fastLoad Whether to load all the environment variables immediately (**Note:** Only .env files).
+     *
      * @throws Exception If the .env file cannot be read.
      */
     public function __construct($rootDirs, bool $fastLoad = false)
     {
         $this->rootDirs = (array) $rootDirs;
-        if ($fastLoad)
+        if ($fastLoad) {
             $this->loadInternal([], true);
+        }
     }
 
     /**
      * Specify which env files to load (in order of priority, later files override earlier ones).
      *
-     * @param array<int, string> $files List of .env files to load, e.g., ['.env.local', '.env.production']
+     * @param  array<int, string> $files List of .env files to load, e.g., ['.env.local', '.env.production']
      * @return self
      */
     public function envfiles(array $files): self
@@ -60,8 +81,8 @@ class TinyEnv
      * - $env->load(['key1', 'key2']); // Load only specific keys
      * - $env->load([], true); // Force reload all variables
      *
-     * @param array<int, string>|string $specificKeys The key or array of keys to load. If empty, loads all.
-     * @param bool $forceReload Whether to force reload even if already loaded.
+     * @param  array<int, string>|string $specificKeys The key or array of keys to load. If empty, loads all.
+     * @param  bool                      $forceReload  Whether to force reload even if already loaded.
      * @throws Exception If the .env file cannot be read.
      */
     public function load($specificKeys = [], bool $forceReload = false): self
@@ -71,14 +92,16 @@ class TinyEnv
 
     /**
      * Load env variables, with option to force reload.
-     * @param array<int, string>|string $specificKeys
-     * @param bool $forceReload
+     *
+     * @param  array<int, string>|string $specificKeys
+     * @param  bool                      $forceReload
      * @return self
      */
     protected function loadInternal($specificKeys = [], bool $forceReload = false): self
     {
-        if ($this->loaded && !$forceReload)
+        if ($this->loaded && !$forceReload) {
             return $this;
+        }
         if ($forceReload) {
             self::$fileLinesCache = [];
         }
@@ -103,27 +126,31 @@ class TinyEnv
 
     /**
      * Load environment variables lazily based on specified prefixes.
-     * 
-     * @param array<int, string> $prefixes Array of prefixes to filter environment variables.
+     *
+     * @param  array<int, string> $prefixes Array of prefixes to filter environment variables.
      * @throws Exception If the .env file cannot be read.
      */
     public function lazy(array $prefixes): self
     {
         $prefixes = array_filter(array_map('strval', $prefixes));
-        if (empty($prefixes))
+        if (empty($prefixes)) {
             return $this;
+        }
         foreach ($this->rootDirs as $dir) {
             foreach (array_reverse($this->envFiles) as $fileName) {
                 $file = $dir . DIRECTORY_SEPARATOR . $fileName;
-                if (!is_file($file) || !is_readable($file))
+                if (!is_file($file) || !is_readable($file)) {
                     continue;
+                }
                 $lines = $this->readEnvFileLines($file, true, true);
-                if ($lines === false)
+                if ($lines === false) {
                     continue;
+                }
                 foreach ($lines as $line) {
                     $line = trim($line);
-                    if ($line === '' || $line[0] === '#' || strpos($line, '=') === false)
+                    if ($line === '' || $line[0] === '#' || strpos($line, '=') === false) {
                         continue;
+                    }
                     [$key] = explode('=', $line, 2);
                     $key = trim($key);
                     foreach ($prefixes as $prefix) {
@@ -131,6 +158,7 @@ class TinyEnv
                             try {
                                 $this->parseAndSetEnvLine($line, null);
                             } catch (Exception $e) {
+                                throw new Exception("Error parsing line in lazy load: " . $e->getMessage(), 0, $e);
                             }
                             break;
                         }
@@ -143,7 +171,7 @@ class TinyEnv
 
     /**
      * Load environment variables from .env files in the specified root directories, but do not throw if file is missing or unreadable.
-     * 
+     *
      * This method does not check for file permissions or attempt to write to any file.
      *
      * @param array<int, string>|string $specificKeys The key or array of keys to load. If empty, loads all.
@@ -155,11 +183,13 @@ class TinyEnv
         foreach ($this->rootDirs as $dir) {
             foreach (array_reverse($this->envFiles) as $fileName) {
                 $file = $dir . DIRECTORY_SEPARATOR . $fileName;
-                if (!is_file($file) || !is_readable($file))
+                if (!is_file($file) || !is_readable($file)) {
                     continue;
+                }
                 $lines = $this->readEnvFileLines($file, true, true);
-                if ($lines === false)
+                if ($lines === false) {
                     continue;
+                }
                 foreach ($lines as $line) {
                     try {
                         $this->parseAndSetEnvLine($line, $filter);
@@ -174,18 +204,19 @@ class TinyEnv
 
     /**
      * Parse a line from .env and set $_ENV/cache if valid.
-     * 
+     *
      * Optionally filter by allowed keys.
      *
-     * @param string $line The line to parse.
-     * @param array<int, string>|null $allowedKeys Optional array of allowed keys to filter. If null, all keys are allowed.
-     * @param array<string, string>|null $rawMap Map of raw key=>value from the .env file for cross-line substitution.
+     * @param string                     $line        The line to parse.
+     * @param array<int, string>|null    $allowedKeys Optional array of allowed keys to filter. If null, all keys are allowed.
+     * @param array<string, string>|null $rawMap      Map of raw key=>value from the .env file for cross-line substitution.
      */
     private function parseAndSetEnvLine(string $line, ?array $allowedKeys = null, ?array $rawMap = null): void
     {
         $line = trim((string) $line);
-        if ($line === '' || $line[0] === '#')
+        if ($line === '' || $line[0] === '#') {
             return;
+        }
         $eqPos = strpos($line, '=');
         if ($eqPos === false) {
             throw new Exception("Malformed .env line (missing '='): $line");
@@ -206,8 +237,9 @@ class TinyEnv
             }
         }
 
-        if ($allowedKeys !== null && !in_array($key, $allowedKeys, true))
+        if ($allowedKeys !== null && !in_array($key, $allowedKeys, true)) {
             return;
+        }
 
         $value = trim($value, " \t\n\r\0\x0B\"");
         $visited = [];
@@ -233,7 +265,11 @@ class TinyEnv
 
             $visited[] = $var;
 
-            /** @var string|int|null $env */
+            /**
+             *
+             *
+             * @var string|int|null $env
+             */
             $env = self::$cache[$var] ?? ($_ENV[$var] ?? null);
 
             if ($env === null && is_array($rawMap) && array_key_exists($var, $rawMap)) {
@@ -287,7 +323,8 @@ class TinyEnv
 
     /**
      * Remove inline comment (not in quotes) from env value.
-     * @param string $value
+     *
+     * @param  string $value
      * @return string
      */
     private static function stripEnvComment(string $value): string
@@ -312,8 +349,8 @@ class TinyEnv
      * Read a file with a shared lock and return lines similar to
      * file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES).
      *
-     * @param string $path
-     * @param bool $ignoreEmptyLines
+     * @param  string $path
+     * @param  bool   $ignoreEmptyLines
      * @return array<string>|false
      */
     private function readEnvFileLines(string $path, bool $ignoreEmptyLines = true, bool $useCache = false)
@@ -322,8 +359,9 @@ class TinyEnv
             return self::$fileLinesCache[$path];
         }
         $fh = @fopen($path, 'rb');
-        if ($fh === false)
+        if ($fh === false) {
             return false;
+        }
         if (!flock($fh, LOCK_SH)) {
             fclose($fh);
             return false;
@@ -331,8 +369,9 @@ class TinyEnv
         $lines = [];
         while (($line = fgets($fh)) !== false) {
             $line = rtrim($line, "\r\n");
-            if ($ignoreEmptyLines && trim($line) === '')
+            if ($ignoreEmptyLines && trim($line) === '') {
                 continue;
+            }
             $lines[] = $line;
         }
 
@@ -347,26 +386,32 @@ class TinyEnv
     /**
      * Load environment variables from a specific .env file, optionally filtering by keys.
      *
-     * @param string $file The path to the .env file.
-     * @param array<int, string>|null $filter Array of keys to load, or null to load all.
+     * @param  string                  $file   The path to the .env file.
+     * @param  array<int, string>|null $filter Array of keys to load, or null to load all.
      * @return bool True if the file was loaded successfully.
      * @throws Exception If the file cannot be read or is not readable.
      */
     protected function loadEnvFile(string $file, ?array $filter = null): bool
     {
-        if (!is_file($file) || !is_readable($file))
+        if (!is_file($file) || !is_readable($file)) {
             throw new Exception("Cannot read: $file");
+        }
         $lines = $this->readEnvFileLines($file, false);
-        if ($lines === false)
+        if ($lines === false) {
             throw new Exception("Failed to read: $file");
+        }
 
         $rawMap = [];
         foreach ($lines as $line) {
             $ln = rtrim($line, "\r\n");
-            if ($ln === '' || preg_match('/^\s*#/', $ln)) continue;
+            if ($ln === '' || preg_match('/^\s*#/', $ln)) {
+                continue;
+            }
             $stripped = self::stripEnvComment($ln);
             $parts = explode('=', $stripped, 2);
-            if (count($parts) < 2) continue;
+            if (count($parts) < 2) {
+                continue;
+            }
             $k = trim($parts[0]);
             $v = isset($parts[1]) ? ltrim($parts[1]) : '';
             $rawMap[$k] = $v;
@@ -380,7 +425,8 @@ class TinyEnv
 
     /**
      * Convert a mixed value to string for env substitution without changing logic.
-     * @param mixed $value
+     *
+     * @param  mixed $value
      * @return string
      */
     private static function stringifyEnvValue($value): string
@@ -393,20 +439,25 @@ class TinyEnv
 
     /**
      * Parse env value to correct type: bool, int, float, null, string
-     * @param mixed $value
+     *
+     * @param  mixed $value
      * @return mixed
      */
     private static function parseValue($value)
     {
-        if (!is_string($value))
+        if (!is_string($value)) {
             return $value;
+        }
         $lower = strtolower($value);
-        if ($lower === 'true' || $lower === 'yes' || $lower === 'on')
+        if ($lower === 'true' || $lower === 'yes' || $lower === 'on') {
             return true;
-        if ($lower === 'false' || $lower === 'no' || $lower === 'off')
+        }
+        if ($lower === 'false' || $lower === 'no' || $lower === 'off') {
             return false;
-        if ($lower === 'null' || $value === '')
+        }
+        if ($lower === 'null' || $value === '') {
             return null;
+        }
         if (is_numeric($value)) {
             return strpos($value, '.') !== false ? (float) $value : (int) $value;
         }
@@ -415,17 +466,18 @@ class TinyEnv
 
     /**
      * Get an environment variable by key, or all if key is null.
-     * 
+     *
      * Returns $default if not found.
      *
-     * @param string|null $key The key of the environment variable.
-     * @param mixed $default The default value if the key does not exist.
+     * @param  string|null $key     The key of the environment variable.
+     * @param  mixed       $default The default value if the key does not exist.
      * @return mixed The value of the environment variable or the default value($default).
      */
     public static function env(?string $key = null, $default = null)
     {
-        if ($key === null)
+        if ($key === null) {
             return $_ENV;
+        }
 
         if (array_key_exists($key, self::$cache)) {
             return self::parseValue(self::$cache[$key]);
@@ -447,16 +499,20 @@ class TinyEnv
 
     /**
      * Get a system environment variable as string or all system environment variables.
-     * 
+     *
      * **Note:** TinyEnv only allows getting system environment variables.
      * It does not support setting them.
      *
-     * @param string|null $key The key of the environment variable or system variable.
+     * @param  string|null $key The key of the environment variable or system variable.
      * @return string|array<string, string> The variable value, or all variables if $key is null.
      */
     public static function sysenv(?string $key = null)
     {
-        /** @var array<string, string> */
+        /**
+         *
+         *
+         * @var array<string, string>
+         */
         static $sysenvCache = [];
 
         if ($key === null) {
@@ -479,8 +535,8 @@ class TinyEnv
     /**
      * Cache a value by key (not limited to env data).
      *
-     * @param string $key The key to set in the cache.
-     * @param mixed $value The value to set in the cache.
+     * @param string $key   The key to set in the cache.
+     * @param mixed  $value The value to set in the cache.
      */
     public static function setCache(string $key, $value): void
     {

@@ -3,7 +3,7 @@ require_once (__DIR__ . '/vendor/autoload.php');
 
 use Datahihi1\TinyEnv\TinyEnv;
 
-$env = new TinyEnv(__DIR__, true ); // Initialize TinyEnv with the current directory
+$env = new TinyEnv(__DIR__.'/demo-env', true ); // Initialize TinyEnv with the current directory
 
 var_dump(env());
 
