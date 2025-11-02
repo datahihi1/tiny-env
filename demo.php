@@ -1,11 +1,13 @@
 <?php
-require_once (__DIR__ . '/vendor/autoload.php');
+require_once __DIR__ . "/src/helper/helpers.php";
+require_once __DIR__ . '/src/TinyEnv.php';
 
 use Datahihi1\TinyEnv\TinyEnv;
 
-$env = new TinyEnv(__DIR__.'/demo-env', true ); // Initialize TinyEnv with the current directory
-
-var_dump(env());
+$env = new TinyEnv(__DIR__);
+$env->populateSuperglobals();
+$env->load(['APP_DEBUG', 'DEMO', 'PORT']);
+var_dump($_ENV);
 
 echo gettype(env('DEMO', '1.2')) . "\n";
 

@@ -41,10 +41,25 @@ class TinyEnv
     protected $envFiles = ['.env'];
 
     /**
+     * By default do NOT write parsed values into PHP superglobals (e.g. $_ENV).
+     * Writing into $_ENV can be abused by .env files to change runtime environment
+     * (PATH, HOME, etc.). Libraries or applications that need the old behavior
+     * can opt-in by calling ->populateSuperglobals(true).
+     *
+     * @var bool
+     */
+    protected $populateSuperglobals = false;
+
+    /**
+     * Maximum allowed recursive substitution depth to avoid DoS via long/cyclic chains.
+     */
+    private const MAX_SUBSTITUTION_DEPTH = 10;
+
+    /**
      * Constructor to initialize the TinyEnv instance.
      *
      * @param string|string[] $rootDirs The root directory to load files from.
-     * @param bool            $fastLoad Whether to load all the environment variables immediately (**Note:** Only .env files).
+     * @param bool            $fastLoad Whether to load all the environment variables immediately (**Note:** Only .env files and enable populateSuperglobals - not recommended for production).
      *
      * @throws Exception If the .env file cannot be read.
      */
@@ -52,8 +67,22 @@ class TinyEnv
     {
         $this->rootDirs = (array) $rootDirs;
         if ($fastLoad) {
+            $this->populateSuperglobals = true;
             $this->loadInternal([], true);
         }
+    }
+
+    /**
+     * Opt-in to populate PHP superglobals (e.g. $_ENV) when env values are parsed.
+     * Default is false for safety.
+     *
+     * @param bool $enable
+     * @return $this
+     */
+    public function populateSuperglobals(bool $enable = true): self
+    {
+        $this->populateSuperglobals = $enable;
+        return $this;
     }
 
     /**
@@ -242,7 +271,7 @@ class TinyEnv
         }
 
         $value = trim($value, " \t\n\r\0\x0B\"");
-        $visited = [];
+        $visited = [$key];
         $allowedOps = ['', ':-', '-', '?', ':?'];
 
         $replacer = function (array $m) {
@@ -261,6 +290,10 @@ class TinyEnv
             if (in_array($var, $visited, true)) {
                 $chain = implode(' -> ', array_merge($visited, [$var]));
                 throw new Exception("TinyEnv: recursive variable substitution detected: {$chain}");
+            }
+
+            if (count($visited) >= self::MAX_SUBSTITUTION_DEPTH) {
+                throw new Exception('TinyEnv: substitution depth exceeded ' . self::MAX_SUBSTITUTION_DEPTH);
             }
 
             $visited[] = $var;
@@ -309,16 +342,44 @@ class TinyEnv
             }
 
             $out = self::stringifyEnvValue($resolved);
+            if (self::isDangerousValue($out)) {
+                throw new Exception("TinyEnv: rejected dangerous env value in substitution: {$out}");
+            }
             array_pop($visited);
             return $out;
         };
 
-
         $value = preg_replace_callback('/\${?([A-Z0-9_]+)(:?[-?])?([^}]*)}?/i', $replacer, $value);
 
+        if (is_string($value) && self::isDangerousValue($value)) {
+            throw new Exception("TinyEnv: rejected dangerous env value: {$value}");
+        }
+
         $parsed = self::parseValue($value);
-        $_ENV[$key] = $parsed;
         self::$cache[$key] = $parsed;
+        if ($this->populateSuperglobals) {
+            $_ENV[$key] = $parsed;
+        }
+    }
+
+    /**
+     * Detect values that are likely to be used to exploit stream-wrappers, data wrappers
+     * or other PHP wrappers which can lead to remote code execution when those values
+     * are later used unsafely by an application.
+     *
+     * This is a conservative check and can be tuned if you need to allow specific schemes.
+     *
+     * @param string $value
+     * @return bool
+     */
+    private static function isDangerousValue(string $value): bool
+    {
+        if ($value === '') {
+            return false;
+        }
+        // common dangerous wrappers / patterns: php://, data:...;base64, phar:, expect:, file:// with php filters
+        // keep the pattern simple and case-insensitive
+        return (bool) preg_match('/php:\/\/|data:[^;]*;base64,|phar:|expect:|zip:|compress:|gopher:|file:\/\//i', $value);
     }
 
     /**
