@@ -27,10 +27,14 @@ class TinyEnvSecurityTest extends \PHPUnit\Framework\TestCase
 
         $env = new TinyEnv($this->tmpDir);
 
-        $this->expectException(Exception::class);
-        $this->expectExceptionMessageMatches('/rejected dangerous env value/');
         // use load() which will attempt to parse and should throw
-        $env->load();
+        try {
+            $env->load();
+            $this->fail('Expected Exception not thrown');
+        } catch (\Exception $e) {
+            // assert message matches expected pattern without relying on PHPUnit-specific helpers
+            $this->assertTrue((bool) preg_match('/rejected dangerous env value/', $e->getMessage()), 'Exception message did not match expected pattern');
+        }
     }
 
     public function testRecursiveSubstitutionChainDetected()
@@ -41,8 +45,11 @@ class TinyEnvSecurityTest extends \PHPUnit\Framework\TestCase
 
         $env = new TinyEnv($this->tmpDir);
 
-        $this->expectException(Exception::class);
-        $this->expectExceptionMessageMatches('/recursive variable substitution|substitution depth exceeded/');
-        $env->load();
+        try {
+            $env->load();
+            $this->fail('Expected Exception not thrown');
+        } catch (\Exception $e) {
+            $this->assertTrue((bool) preg_match('/recursive variable substitution|substitution depth exceeded/', $e->getMessage()), 'Exception message did not match expected pattern');
+        }
     }
 }
