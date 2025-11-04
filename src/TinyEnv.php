@@ -59,7 +59,8 @@ class TinyEnv
      * Constructor to initialize the TinyEnv instance.
      *
      * @param string|string[] $rootDirs The root directory to load files from.
-     * @param bool            $fastLoad Whether to load all the environment variables immediately (**Note:** Only .env files and enable populateSuperglobals - not recommended for production).
+     * @param bool            $fastLoad Whether to load all the environment variables immediately.
+     *      **Note:** Only .env files and enable populateSuperglobals - not recommended for production
      *
      * @throws Exception If the .env file cannot be read.
      */
@@ -147,7 +148,10 @@ class TinyEnv
             }
         }
         if (!$found) {
-            throw new \RuntimeException("No .env file found in any root directory: [" . implode(", ", $this->rootDirs) . "] with files [" . implode(", ", $this->envFiles) . "]");
+            throw new \RuntimeException(
+                "No .env file found in directories: [" . implode(", ", $this->rootDirs) . "] 
+                with [" . implode(", ", $this->envFiles) . "]"
+            );
         }
         $this->loaded = true;
         return $this;
@@ -199,7 +203,8 @@ class TinyEnv
     }
 
     /**
-     * Load environment variables from .env files in the specified root directories, but do not throw if file is missing or unreadable.
+     * Load environment variables from .env files in the specified root directories,
+     * but do not throw if file is missing or unreadable.
      *
      * This method does not check for file permissions or attempt to write to any file.
      *
@@ -236,9 +241,10 @@ class TinyEnv
      *
      * Optionally filter by allowed keys.
      *
-     * @param string                     $line        The line to parse.
-     * @param array<int, string>|null    $allowedKeys Optional array of allowed keys to filter. If null, all keys are allowed.
-     * @param array<string, string>|null $rawMap      Map of raw key=>value from the .env file for cross-line substitution.
+     * @param array<int, string>|null    $allowedKeys Optional array of allowed keys to filter.
+     *                                             If null, all keys are allowed.
+     * @param array<string, string>|null $rawMap      Map of raw key=>value from the .env file.
+     *                                             Used for cross-line substitution.
      */
     private function parseAndSetEnvLine(string $line, ?array $allowedKeys = null, ?array $rawMap = null): void
     {
@@ -261,8 +267,13 @@ class TinyEnv
 
         $trimmedValueForCheck = ltrim(substr($line, $eqPos + 1));
         if ($trimmedValueForCheck !== '' && $trimmedValueForCheck[0] === '=') {
-            if (!isset($trimmedValueForCheck[1]) || ($trimmedValueForCheck[1] !== '"' && $trimmedValueForCheck[1] !== "'")) {
-                throw new Exception("Malformed .env line (unexpected '=' after key) in: $line");
+            if (
+                !isset($trimmedValueForCheck[1])
+                || ($trimmedValueForCheck[1] !== '"' && $trimmedValueForCheck[1] !== "'")
+            ) {
+                throw new Exception(
+                    "Malformed .env line (unexpected '=' after key) in: $line"
+                );
             }
         }
 
@@ -377,9 +388,10 @@ class TinyEnv
         if ($value === '') {
             return false;
         }
-        // common dangerous wrappers / patterns: php://, data:...;base64, phar:, expect:, file:// with php filters
-        // keep the pattern simple and case-insensitive
-        return (bool) preg_match('/php:\/\/|data:[^;]*;base64,|phar:|expect:|zip:|compress:|gopher:|file:\/\//i', $value);
+        return (bool) preg_match(
+            '/php:\/\/|data:[^;]*;base64,|phar:|expect:|zip:|compress:|gopher:|file:\/\//i',
+            $value
+        );
     }
 
     /**
