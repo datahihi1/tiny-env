@@ -10,31 +10,31 @@ use Exception;
 class TinyEnv
 {
     /**
-     *
+     * Loaded flag to check if envs have been loaded.
      *
      * @var bool
      */
     protected $loaded = false;
     /**
-     *
+     * Root directories to search for .env files.
      *
      * @var string[]
      */
     protected $rootDirs;
     /**
-     *
+     * Cached env values
      *
      * @var array<string, mixed>
      */
     protected static $cache = [];
     /**
-     *
+     * Cached file lines to avoid re-reading files
      *
      * @var array<string, string[]>
      */
     protected static $fileLinesCache = [];
     /**
-     *
+     * List of .env files to load, in order of priority.
      *
      * @var string[]
      */
@@ -115,9 +115,9 @@ class TinyEnv
      * @param  bool                      $forceReload  Whether to force reload even if already loaded.
      * @throws Exception If the .env file cannot be read.
      */
-    public function load($specificKeys = [], bool $forceReload = false): self
+    public function load($specificKeys = [], bool $forceReload = false, bool $noFile = false): self
     {
-        return $this->loadInternal($specificKeys, $forceReload);
+        return $this->loadInternal($specificKeys, $forceReload, $noFile);
     }
 
     /**
@@ -127,7 +127,7 @@ class TinyEnv
      * @param  bool                      $forceReload
      * @return self
      */
-    protected function loadInternal($specificKeys = [], bool $forceReload = false): self
+    protected function loadInternal($specificKeys = [], bool $forceReload = false, bool $noFile = false): self
     {
         if ($this->loaded && !$forceReload) {
             return $this;
@@ -148,9 +148,10 @@ class TinyEnv
             }
         }
         if (!$found) {
+            $listDirs = implode(", ", $this->rootDirs);
+            $listFiles = implode(", ", $this->envFiles);
             throw new \RuntimeException(
-                "No .env file found in directories: [" . implode(", ", $this->rootDirs) . "] 
-                with [" . implode(", ", $this->envFiles) . "]"
+                "No .env file found in directories: [$listDirs] with [$listFiles]"
             );
         }
         $this->loaded = true;
@@ -162,6 +163,7 @@ class TinyEnv
      *
      * @param  array<int, string> $prefixes Array of prefixes to filter environment variables.
      * @throws Exception If the .env file cannot be read.
+     * @deprecated May be unusable and make the code harder to maintain. Not recommended for use.
      */
     public function lazy(array $prefixes): self
     {
@@ -209,6 +211,7 @@ class TinyEnv
      * This method does not check for file permissions or attempt to write to any file.
      *
      * @param array<int, string>|string $specificKeys The key or array of keys to load. If empty, loads all.
+     * @deprecated Use: load(noFile: true)
      */
     public function safeLoad($specificKeys = []): self
     {
@@ -282,6 +285,13 @@ class TinyEnv
         }
 
         $value = trim($value, " \t\n\r\0\x0B\"");
+
+        $forceString = false;
+        if (strlen($value) >= 2 && $value[0] === '/' && substr($value, -1) === '/') {
+            $value = substr($value, 1, -1);
+            $forceString = true;
+        }
+
         $visited = [$key];
         $allowedOps = ['', ':-', '-', '?', ':?'];
 
@@ -353,7 +363,7 @@ class TinyEnv
             }
 
             $out = self::stringifyEnvValue($resolved);
-            if (self::isDangerousValue($out)) {
+            if (self::isDangerous($out)) {
                 throw new Exception("TinyEnv: rejected dangerous env value in substitution: {$out}");
             }
             array_pop($visited);
@@ -362,11 +372,11 @@ class TinyEnv
 
         $value = preg_replace_callback('/\${?([A-Z0-9_]+)(:?[-?])?([^}]*)}?/i', $replacer, $value);
 
-        if (is_string($value) && self::isDangerousValue($value)) {
+        if (is_string($value) && self::isDangerous($value)) {
             throw new Exception("TinyEnv: rejected dangerous env value: {$value}");
         }
 
-        $parsed = self::parseValue($value);
+        $parsed = $forceString ? (string) $value : self::parseValue($value);
         self::$cache[$key] = $parsed;
         if ($this->populateSuperglobals) {
             $_ENV[$key] = $parsed;
@@ -383,7 +393,7 @@ class TinyEnv
      * @param string $value
      * @return bool
      */
-    private static function isDangerousValue(string $value): bool
+    private static function isDangerous(string $value): bool
     {
         if ($value === '') {
             return false;
@@ -549,7 +559,7 @@ class TinyEnv
     public static function env(?string $key = null, $default = null)
     {
         if ($key === null) {
-            return $_ENV;
+            return $_ENV ?: self::$cache;
         }
 
         if (array_key_exists($key, self::$cache)) {
@@ -614,5 +624,14 @@ class TinyEnv
     public static function setCache(string $key, $value): void
     {
         self::$cache[$key] = $value;
+    }
+
+    /**
+     * Clear the internal cache of env values and file lines.
+     */
+    public static function clearCache(): void
+    {
+        self::$cache = [];
+        self::$fileLinesCache = [];
     }
 }

@@ -39,3 +39,13 @@ $tinyenv->load();
 // or use fastLoad
 $tinyenv = new \Datahihi1\TinyEnv\TinyEnv(__DIR__ . '/path/to/.env', true);
 ```
+
+# 08-11-2025
+
+### Added
+- Added support `"/.../"` syntax to treat values as strings, even if they look like numbers or booleans.
+- Added clearCache() method to clear the internal cache of loaded environment variables.
+
+### Deprecated
+- Deprecated lazy() method. It does not seem to have a practical use case.
+- Deprecated safeLoad() method. Use load(noFile: true) instead. I want to optimize and simplify the codebase.

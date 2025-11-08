@@ -4,15 +4,13 @@ require_once __DIR__ . '/src/TinyEnv.php';
 
 use Datahihi1\TinyEnv\TinyEnv;
 
-$env = new TinyEnv(__DIR__);
-$env->populateSuperglobals();
-$env->load(['APP_DEBUG', 'DEMO', 'PORT']);
-var_dump($_ENV);
+$env = new TinyEnv([__DIR__.'/test',__DIR__]);
+$env->populateSuperglobals(true);
+$env->load();
 
 echo gettype(env('DEMO', '1.2')) . "\n";
-
-// var_dump(sysenv());
-
+TinyEnv::env('MISSING', 'default');
+var_dump($_ENV, env(), s_env());
 if (env('APP_DEBUG')) {
     echo "Debug mode is ON\n";
 }

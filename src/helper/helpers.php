@@ -18,6 +18,43 @@ if (!function_exists('env')) {
     }
 }
 
+if (!function_exists('s_env')) {
+    /**
+     * Convenience function to get env value(s) as string(s).
+     *
+     * @param  string|null $key     The key of the environment variable.
+     * @param  string      $default The default value if the key does not exist.
+     * @return array<string>|string
+     */
+    function s_env(?string $key = null, $default = '')
+    {
+        $val = TinyEnv::env($key, $default);
+
+        $toString = function ($v): string {
+            if ($v === null) {
+                return '';
+            }
+            if (is_scalar($v)) {
+                return (string) $v;
+            }
+            if (is_object($v) && method_exists($v, '__toString')) {
+                return (string) $v;
+            }
+            return '';
+        };
+
+        if ($key === null) {
+            $out = [];
+            foreach ((array) $val as $k => $v) {
+                $out[(string) $k] = $toString($v);
+            }
+            return $out;
+        }
+
+        return $toString($val);
+    }
+}
+
 if (!function_exists('sysenv')) {
     /**
      * Get a system environment variable as string, or all system env variables.

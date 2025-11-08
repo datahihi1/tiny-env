@@ -28,6 +28,8 @@ echo env('DB_HOST', 'localhost');
 ```env
 DB_HOST=127.0.0.1
 DB_PORT=3306
+
+NUM_STRING="/123/" # This is a string, not a number
 ```
 
 ### Features
@@ -43,36 +45,38 @@ $env = new TinyEnv(__DIR__, true); // Load immediately
 ```
 
 #### 3. Lazy load
-```php
-$env->lazy(['DB']); // Load only DB_* variables
-```
+After version 11-8-2025, this method is deprecated and not recommended for use.
 
 #### 4. Safe load
-```php
-$env->safeLoad(); // Ignore missing/unreadable .env files
-```
+After version 11-8-2025, use `load(noFile: true)` instead. This method avoids loading potentially dangerous values.
 
 #### 5. Multiple .env files
 ```php
 $env->envfiles(['.env', '.env.local', '.env.production']);
 ```
 
+#### 6. Populate Superglobals
+After version 11-2-2025, superglobals are NOT populated by default. To enable:
+```php
+$env = new TinyEnv(__DIR__);
+$env->populateSuperglobals(); // Enable superglobals population
+$env->load();
+```
+
+Or use `fastLoad` which will always populate superglobals - **But not recommended for production**.
+
 - Getting Values
 ```php
 echo env('NAME');                // Get value
 echo env('NOT_FOUND', 'backup'); // With default
 print_r(env());                  // Get all (in .env file)
+print_r(s_env());                // Get all converted to string
 print_r(sysenv());               // Get all system variables
 ```
 
 - Validation
-```php
-validate_env([
-  'VERSION' => 'required|string',
-  'DB_PORT' => 'int',
-  'APP_DEBUG' => 'bool'
-]);
-```
+
+Using [tiny-env-validator](https://github.com/datahihi1/tiny-env-validator.git)
 
 ### Variable Interpolation
 
