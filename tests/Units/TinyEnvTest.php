@@ -14,7 +14,7 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
     protected function setUp(): void
     {
         // Direction to the .env file in the project root
-        $this->envFile = __DIR__ . '/../.env';
+        $this->envFile = __DIR__ . '/../../.env';
     }
 
     /**
@@ -47,26 +47,10 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
         // Ensure .env is loaded fresh in next test
     }
 
-    public function testEnvfilesPriorityAndFastLoad()
-    {
-        $this->resetEnvState();
-        // envfiles order: later files override earlier ones. We pass production
-        // and .env; production should override values.
-        $env = new TinyEnv(__DIR__ . '/..');
-        $env->envfiles(['.env.production', '.env']);
-        // use safeLoad here so tests that expect a successful load are not
-        // interrupted by the recursion detection test data (VAR1<->VAR2)
-        $env->safeLoad();
-        // fastLoad true triggers load in constructor; app name should come from production
-        // always prioritize .env , .env.production is also considered as override
-        $this->assertEquals('TinyEnv', TinyEnv::env('APP_NAME'));
-        $this->assertTrue(TinyEnv::env('APP_DEBUG'));
-    }
-
     public function testLoadWithSpecificKeys()
     {
         $this->resetEnvState();
-        $env = new TinyEnv(__DIR__ . '/..');
+        $env = new TinyEnv(__DIR__ . '/../../');
         // Load only MY_TEXT
         $env->load(['MY_TEXT']);
         $this->assertSame(8.7, TinyEnv::env('MY_TEXT'));
@@ -77,7 +61,7 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
     public function testRecursiveSubstitutionThrows()
     {
         $this->resetEnvState();
-        $env = new TinyEnv(__DIR__ . '/..');
+        $env = new TinyEnv(__DIR__ . '/../../');
         $this->expectException(Exception::class);
         if (method_exists($this, 'expectExceptionMessageMatches')) {
             $this->expectExceptionMessageMatches('/recursive variable substitution/');
@@ -87,7 +71,7 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
         $env->load();
     }
 
-    public function testMalformedLinesLoadVsSafeLoad()
+    public function testMalformedLinesLoad()
     {
         $this->resetEnvState();
         // Create a temp dir with a malformed .env
@@ -95,36 +79,10 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
         mkdir($tmp);
         $bad = "OK=1\nBADLINE\nANOTHER=2\nBAD==x\n";
         file_put_contents($tmp . DIRECTORY_SEPARATOR . '.env', $bad);
-        try {
             $env = new TinyEnv($tmp);
             // load should throw on malformed lines
             $this->expectException(Exception::class);
             $env->load();
-        } finally {
-            // safeLoad should not throw
-            $env2 = new TinyEnv($tmp);
-            $env2->safeLoad();
-            $this->assertSame(1, TinyEnv::env('OK'));
-            // cleanup
-            @unlink($tmp . DIRECTORY_SEPARATOR . '.env');
-            @rmdir($tmp);
-        }
-    }
-
-    public function testLazyCaching()
-    {
-        $this->resetEnvState();
-        $env = new TinyEnv(__DIR__ . '/..');
-        // first lazy() should populate internal fileLinesCache
-        $env->lazy(['APP']);
-        $rc = new \ReflectionClass(TinyEnv::class);
-        $prop = $rc->getProperty('fileLinesCache');
-        $prop->setAccessible(true);
-        $cache = $prop->getValue();
-        $this->assertNotEmpty($cache);
-        // calling lazy again should still work and the cache remains
-        $env->lazy(['MY']);
-        $this->assertNotEmpty($prop->getValue());
     }
 
     public function testSetCacheAndEnvGetter()
@@ -134,24 +92,10 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
         $this->assertSame(42, TinyEnv::env('X_TEST'));
     }
 
-    public function testLazyLoadWithPrefixAndPersistence()
+    public function testLoadDoesNotThrowOnMissingFile()
     {
         $this->resetEnvState();
-        $env = new TinyEnv(__DIR__ . '/..');
-        $env->lazy(['APP']);
-
-        // lazy loads only keys with APP prefix
-        Assert::assertEquals('TinyEnv', TinyEnv::env('APP_NAME'));
-        Assert::assertTrue(TinyEnv::env('APP_DEBUG'));
-
-        // Non-APP keys should not be present unless requested
-        Assert::assertNull(TinyEnv::env('MY_IP'));
-    }
-
-    public function testSafeLoadDoesNotThrowOnMissingFile()
-    {
-        $this->resetEnvState();
-        $env = new TinyEnv(__DIR__ . '/..');
+        $env = new TinyEnv(__DIR__ . '/../../');
         // Rename .env to simulate missing file
         $bak = $this->envFile . '.bak';
         $renamed = false;
@@ -161,7 +105,7 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
             }
             // safeLoad should not throw
             $this->expectNotToPerformAssertions();
-            $env->safeLoad();
+            $env->load([],false, true);
         } finally {
             if ($renamed && is_file($bak)) {
                 @rename($bak, $this->envFile);
@@ -182,9 +126,17 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
      */
     public function testLoadAndGetEnv()
     {
-        $env = new TinyEnv(__DIR__ . '/..');
+        $env = new TinyEnv(__DIR__ . '/../../');
         // use safeLoad to tolerate the recursive entries in the fixture
-        $env->safeLoad();
+        $env->load([
+            'APP_NAME',
+            'APP_DEBUG',
+            'MY_TEXT',
+            'EMPTY_VALUE',
+            'NULL_VALUE',
+            'INTERPOLATED_VALUE',
+            'DEFAULTED_VALUE'
+        ],false, true);;
 
         // Basic string and boolean (note: parseValue converts 'true' string to boolean true)
         Assert::assertEquals('TinyEnv', TinyEnv::env('APP_NAME'));
@@ -220,7 +172,7 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
      */
     public function testLoadThrowExceptionOnMissingFile()
     {
-        $env = new TinyEnv(__DIR__ . '/..');
+        $env = new TinyEnv(__DIR__ . '/../../');
         // Expect RuntimeException when .env is missing
         $this->expectException(\RuntimeException::class);
 

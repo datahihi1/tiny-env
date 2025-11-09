@@ -147,7 +147,7 @@ class TinyEnv
                 }
             }
         }
-        if (!$found) {
+        if (!$found && !$noFile) {
             $listDirs = implode(", ", $this->rootDirs);
             $listFiles = implode(", ", $this->envFiles);
             throw new \RuntimeException(
@@ -155,87 +155,6 @@ class TinyEnv
             );
         }
         $this->loaded = true;
-        return $this;
-    }
-
-    /**
-     * Load environment variables lazily based on specified prefixes.
-     *
-     * @param  array<int, string> $prefixes Array of prefixes to filter environment variables.
-     * @throws Exception If the .env file cannot be read.
-     * @deprecated May be unusable and make the code harder to maintain. Not recommended for use.
-     */
-    public function lazy(array $prefixes): self
-    {
-        $prefixes = array_filter(array_map('strval', $prefixes));
-        if (empty($prefixes)) {
-            return $this;
-        }
-        foreach ($this->rootDirs as $dir) {
-            foreach (array_reverse($this->envFiles) as $fileName) {
-                $file = $dir . DIRECTORY_SEPARATOR . $fileName;
-                if (!is_file($file) || !is_readable($file)) {
-                    continue;
-                }
-                $lines = $this->readEnvFileLines($file, true, true);
-                if ($lines === false) {
-                    continue;
-                }
-                foreach ($lines as $line) {
-                    $line = trim($line);
-                    if ($line === '' || $line[0] === '#' || strpos($line, '=') === false) {
-                        continue;
-                    }
-                    [$key] = explode('=', $line, 2);
-                    $key = trim($key);
-                    foreach ($prefixes as $prefix) {
-                        if (stripos($key, $prefix) === 0) {
-                            try {
-                                $this->parseAndSetEnvLine($line, null);
-                            } catch (Exception $e) {
-                                throw new Exception("Error parsing line in lazy load: " . $e->getMessage(), 0, $e);
-                            }
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        return $this;
-    }
-
-    /**
-     * Load environment variables from .env files in the specified root directories,
-     * but do not throw if file is missing or unreadable.
-     *
-     * This method does not check for file permissions or attempt to write to any file.
-     *
-     * @param array<int, string>|string $specificKeys The key or array of keys to load. If empty, loads all.
-     * @deprecated Use: load(noFile: true)
-     */
-    public function safeLoad($specificKeys = []): self
-    {
-        $specificKeys = (array) $specificKeys;
-        $filter = count($specificKeys) > 0 ? $specificKeys : null;
-        foreach ($this->rootDirs as $dir) {
-            foreach (array_reverse($this->envFiles) as $fileName) {
-                $file = $dir . DIRECTORY_SEPARATOR . $fileName;
-                if (!is_file($file) || !is_readable($file)) {
-                    continue;
-                }
-                $lines = $this->readEnvFileLines($file, true, true);
-                if ($lines === false) {
-                    continue;
-                }
-                foreach ($lines as $line) {
-                    try {
-                        $this->parseAndSetEnvLine($line, $filter);
-                    } catch (Exception $e) {
-                        continue;
-                    }
-                }
-            }
-        }
         return $this;
     }
 
@@ -628,9 +547,16 @@ class TinyEnv
 
     /**
      * Clear the internal cache of env values and file lines.
+     * 
+     * @param string|null $key Optional key to clear specific cache entry.
      */
-    public static function clearCache(): void
+    public static function clearCache(?string $key = null): void
     {
+        if ($key !== null) {
+            unset(self::$cache[$key]);
+            unset(self::$fileLinesCache[$key]);
+            return;
+        }
         self::$cache = [];
         self::$fileLinesCache = [];
     }

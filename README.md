@@ -37,6 +37,8 @@ NUM_STRING="/123/" # This is a string, not a number
 ```php
 $env->load();              // Load all
 $env->load(['DB_HOST']);   // Load specific keys
+$env->load([], forceReload: true);    // Overwrite existing values
+$env->load([], noFile: true); // Load but not check .env file existence
 ```
 
 #### 2. Fast load
@@ -44,19 +46,12 @@ $env->load(['DB_HOST']);   // Load specific keys
 $env = new TinyEnv(__DIR__, true); // Load immediately
 ```
 
-#### 3. Lazy load
-After version 11-8-2025, this method is deprecated and not recommended for use.
-
-#### 4. Safe load
-After version 11-8-2025, use `load(noFile: true)` instead. This method avoids loading potentially dangerous values.
-
-#### 5. Multiple .env files
+#### 3. Multiple .env files
 ```php
 $env->envfiles(['.env', '.env.local', '.env.production']);
 ```
 
-#### 6. Populate Superglobals
-After version 11-2-2025, superglobals are NOT populated by default. To enable:
+#### Populate Superglobals
 ```php
 $env = new TinyEnv(__DIR__);
 $env->populateSuperglobals(); // Enable superglobals population
@@ -115,6 +110,7 @@ REQUIRED → throws Exception
 >   - `"12.3"` → `float` or `double`
 >   - `"null"` or empty → `null`
 > - TinyEnv considers yes/no, on/off to be boolean values.
+> - Use `"/value/"` to force string type.
 
 ### Run Tests
 
