@@ -2,11 +2,11 @@
 
 A lightweight .env loader for PHP projects.
 
-⚡ Fast, 🛡️ Safe, 🎯 Simple — designed for small to medium projects.
+Fast, Safe, Simple — designed for small to medium projects.
 
 ### Installation
 ```bash
-composer require datahihi1/tiny-env:^1.0.13
+composer require datahihi1/tiny-env:^1.0.14
 ```
 
 ### Quick Start
@@ -33,27 +33,32 @@ DB_PORT=3306
 ```php
 $env->load();              // Load all
 $env->load(['DB_HOST']);   // Load specific keys
+$env->load(noFile:true);   // Load but skip checking .env file existence
 ```
 
 #### 2. Fast load
 ```php
 $env = new TinyEnv(__DIR__, true); // Load immediately
+# $env->load(); // No need to call load() again
 ```
 
-#### 3. Lazy load
+#### 3. Multiple .env files
 ```php
-$env->lazy(['DB']); // Load only DB_* variables
-```
-
-#### 4. Safe load
-```php
-$env->safeLoad(); // Ignore missing/unreadable .env files
-```
-
-#### 5. Multiple .env files
-```php
+$env = new TinyEnv(__DIR__.'/to/path/env');
 $env->envfiles(['.env', '.env.local', '.env.production']);
+$env->load(); // Load from multiple files but .env is always first
 ```
+
+TinyEnv always loads `.env` first, then any additional files in the order specified.
+
+#### Populate Superglobals
+```php
+$env = new TinyEnv(__DIR__);
+$env->populateSuperglobals(); // Enable superglobals population
+$env->load();
+```
+
+Or use `fastLoad` which will always populate superglobals - **But not recommended for production**.
 
 - Getting Values
 ```php
@@ -64,7 +69,8 @@ print_r(sysenv());               // Get all system variables
 ```
 
 - Validation
-For validation, consider using [tiny-env-validator](https://github.com/datahihi1/tiny-env-validator.git).
+
+Using [tiny-env-validator](https://github.com/datahihi1/tiny-env-validator.git)
 
 ### Variable Interpolation
 
