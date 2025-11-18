@@ -3,6 +3,15 @@
 namespace Datahihi1\TinyEnv;
 
 use Exception;
+use function array_key_exists;
+use function count;
+use function func_num_args;
+use function in_array;
+use function is_array;
+use function is_file;
+use function is_scalar;
+use function is_string;
+use function strlen;
 
 /**
  * TinyEnv is a simple environment variable loader for PHP applications
@@ -54,6 +63,14 @@ class TinyEnv
      * Maximum allowed recursive substitution depth to avoid DoS via long/cyclic chains.
      */
     private const MAX_SUBSTITUTION_DEPTH = 10;
+    /**
+     * Maximum number of lines per file
+     */
+    private const MAX_LINES = 10000;
+    /**
+     * Maximum line length
+     */
+    private const MAX_LINE_LENGTH = 8192;
 
     /**
      * Constructor to initialize the TinyEnv instance.
@@ -139,10 +156,24 @@ class TinyEnv
         $filter = !empty($specificKeys) ? $specificKeys : null;
         $found = false;
         foreach ($this->rootDirs as $dir) {
+            $realDir = realpath($dir);
+            if ($realDir === false) {
+                continue;
+            }
             foreach (array_reverse($this->envFiles) as $fileName) {
-                $file = $dir . DIRECTORY_SEPARATOR . $fileName;
-                if (is_file($file) && is_readable($file)) {
-                    $this->loadEnvFile($file, $filter);
+                if (strpos($fileName, '..') !== false || strpos($fileName, '/') !== false || strpos($fileName, '\\') !== false) {
+                    continue;
+                }
+                if (!preg_match('/^\.env(\.\w+)?$/', $fileName)) {
+                    continue;
+                }
+                $file = $realDir . DIRECTORY_SEPARATOR . $fileName;
+                $realFile = realpath($file);
+                if ($realFile === false || strpos($realFile, $realDir) !== 0) {
+                    continue;
+                }
+                if (is_file($realFile) && is_readable($realFile)) {
+                    $this->loadEnvFile($realFile, $filter);
                     $found = true;
                 }
             }
@@ -183,8 +214,8 @@ class TinyEnv
         $value = ltrim(substr($line, $eqPos + 1));
         $value = self::stripEnvComment($value);
 
-        if ($key === '' || !preg_match('/^[A-Z_][A-Z0-9_]*$/i', $key)) {
-            throw new Exception("Malformed .env line (invalid key) in: $line");
+        if ($key === '' || !preg_match('/^[A-Z_][A-Z0-9_]*$/i', $key) || strlen($key) > 255) {
+            throw new Exception("Malformed .env line - invalid key: {$key}");
         }
 
         $trimmedValueForCheck = ltrim(substr($line, $eqPos + 1));
@@ -193,9 +224,7 @@ class TinyEnv
                 !isset($trimmedValueForCheck[1])
                 || ($trimmedValueForCheck[1] !== '"' && $trimmedValueForCheck[1] !== "'")
             ) {
-                throw new Exception(
-                    "Malformed .env line (unexpected '=' after key) in: $line"
-                );
+                throw new Exception("Malformed .env line - invalid value: {$line}");
             }
         }
 
@@ -222,14 +251,17 @@ class TinyEnv
             $op  = isset($m[2]) && is_scalar($m[2]) ? (string) $m[2] : '';
             $arg = isset($m[3]) && is_scalar($m[3]) ? (string) $m[3] : '';
 
+            if ($arg !== '' && !preg_match('/^[A-Z0-9_\s-]*$/i', $arg)) {
+                throw new Exception("TinyEnv: invalid characters in substitution argument {$arg}");
+            }
+
             $msgOp = isset($m[0]) && is_scalar($m[0]) ? (string) $m[0] : '';
             if (!in_array($op, $allowedOps, true)) {
-                throw new Exception("TinyEnv: invalid substitution operator '{$op}' in {$msgOp}");
+                throw new Exception("TinyEnv: invalid substitution operator {$op}");
             }
 
             if (in_array($var, $visited, true)) {
-                $chain = implode(' -> ', array_merge($visited, [$var]));
-                throw new Exception("TinyEnv: recursive variable substitution detected: {$chain}");
+                throw new Exception("TinyEnv: recursive variable substitution detected for {$var}");
             }
 
             if (count($visited) >= self::MAX_SUBSTITUTION_DEPTH) {
@@ -267,13 +299,14 @@ class TinyEnv
                     break;
                 case '?':
                     if ($env === null || $env === '') {
-                        throw new Exception("TinyEnv: missing required variable '{$var}' ({$arg})");
+                        throw new Exception("TinyEnv: missing required variable {$var}");
                     }
                     $resolved = $env;
                     break;
                 case ':?':
                     if ($env === null) {
-                        throw new Exception("TinyEnv: missing required variable '{$var}' ({$arg})");
+                        $msg = $arg !== '' ? $arg : "TinyEnv: missing required variable {$var}";
+                        throw new Exception($msg);
                     }
                     $resolved = $env;
                     break;
@@ -283,16 +316,16 @@ class TinyEnv
 
             $out = self::stringifyEnvValue($resolved);
             if (self::isDangerous($out)) {
-                throw new Exception("TinyEnv: rejected dangerous env value in substitution: {$out}");
+                throw new Exception("TinyEnv: rejected dangerous env value {$out}");
             }
             array_pop($visited);
             return $out;
         };
 
-        $value = preg_replace_callback('/\${?([A-Z0-9_]+)(:?[-?])?([^}]*)}?/i', $replacer, $value);
+        $value = preg_replace_callback('/\$\{([A-Z0-9_]+)(:?[-?])?([^}]*)\}/i', $replacer, $value);
 
         if (is_string($value) && self::isDangerous($value)) {
-            throw new Exception("TinyEnv: rejected dangerous env value: {$value}");
+            throw new Exception("TinyEnv: rejected dangerous env value {$value}");
         }
 
         $parsed = $forceString ? (string) $value : self::parseValue($value);
@@ -317,10 +350,31 @@ class TinyEnv
         if ($value === '') {
             return false;
         }
-        return (bool) preg_match(
-            '/php:\/\/|data:[^;]*;base64,|phar:|expect:|zip:|compress:|gopher:|file:\/\//i',
-            $value
-        );
+        $decoded = urldecode($value);
+        $doubleDecoded = urldecode($decoded);
+        $cleaned = preg_replace('/[\s\x00]/', '', strtolower($value));
+        $cleanedDecoded = preg_replace('/[\s\x00]/', '', strtolower($decoded));
+        $cleanedDoubleDecoded = preg_replace('/[\s\x00]/', '', strtolower($doubleDecoded));
+        
+        $patterns = [
+            '/php:\/\//',
+            '/data:[^;]*;base64,/',
+            '/phar:/',
+            '/expect:/',
+            '/zip:/',
+            '/compress:/',
+            '/gopher:/',
+            '/file:\/\//',
+        ];
+        
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, (string) $cleaned) ||
+                preg_match($pattern, (string) $cleanedDecoded) ||
+                preg_match($pattern, (string) $cleanedDoubleDecoded)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -348,44 +402,6 @@ class TinyEnv
     }
 
     /**
-     * Read a file with a shared lock and return lines similar to
-     * file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES).
-     *
-     * @param  string $path
-     * @param  bool   $ignoreEmptyLines
-     * @return array<string>|false
-     */
-    private function readEnvFileLines(string $path, bool $ignoreEmptyLines = true, bool $useCache = false)
-    {
-        if ($useCache && isset(self::$fileLinesCache[$path])) {
-            return self::$fileLinesCache[$path];
-        }
-        $fh = @fopen($path, 'rb');
-        if ($fh === false) {
-            return false;
-        }
-        if (!flock($fh, LOCK_SH)) {
-            fclose($fh);
-            return false;
-        }
-        $lines = [];
-        while (($line = fgets($fh)) !== false) {
-            $line = rtrim($line, "\r\n");
-            if ($ignoreEmptyLines && trim($line) === '') {
-                continue;
-            }
-            $lines[] = $line;
-        }
-
-        flock($fh, LOCK_UN);
-        fclose($fh);
-        if ($useCache) {
-            self::$fileLinesCache[$path] = $lines;
-        }
-        return $lines;
-    }
-
-    /**
      * Load environment variables from a specific .env file, optionally filtering by keys.
      *
      * @param  string                  $file   The path to the .env file.
@@ -395,12 +411,45 @@ class TinyEnv
      */
     protected function loadEnvFile(string $file, ?array $filter = null): bool
     {
-        if (!is_file($file) || !is_readable($file)) {
-            throw new Exception("Cannot read: $file");
+        $fh = @fopen($file, 'rb');
+        if ($fh === false) {
+            throw new Exception("Cannot read file");
         }
-        $lines = $this->readEnvFileLines($file, false);
-        if ($lines === false) {
-            throw new Exception("Failed to read: $file");
+        if (!flock($fh, LOCK_SH)) {
+            fclose($fh);
+            throw new Exception("Cannot lock file");
+        }
+        $stat = @fstat($fh);
+        if ($stat === false || !is_file($file)) {
+            flock($fh, LOCK_UN);
+            fclose($fh);
+            throw new Exception("File changed during read");
+        }
+        $lines = [];
+        $lineCount = 0;
+        while (($line = fgets($fh)) !== false) {
+            if (strlen($line) > self::MAX_LINE_LENGTH) {
+                flock($fh, LOCK_UN);
+                fclose($fh);
+                throw new Exception("Line too long");
+            }
+            $line = rtrim($line, "\r\n");
+            if (trim($line) === '') {
+                continue;
+            }
+            $lines[] = $line;
+            $lineCount++;
+            if ($lineCount > self::MAX_LINES) {
+                flock($fh, LOCK_UN);
+                fclose($fh);
+                throw new Exception("Too many lines");
+            }
+        }
+        flock($fh, LOCK_UN);
+        fclose($fh);
+        
+        if (empty($lines)) {
+            return true;
         }
 
         $rawMap = [];
@@ -460,8 +509,15 @@ class TinyEnv
         if ($lower === 'null' || $value === '') {
             return null;
         }
-        if (is_numeric($value)) {
-            return strpos($value, '.') !== false ? (float) $value : (int) $value;
+        if (preg_match('/^-?\d+$/', $value)) {
+            $int = (int) $value;
+            if ((string) $int !== $value) {
+                return $value;
+            }
+            return $int;
+        }
+        if (preg_match('/^-?\d+\.\d+$/', $value)) {
+            return (float) $value;
         }
         return $value;
     }
@@ -491,7 +547,6 @@ class TinyEnv
 
         if (func_num_args() > 1) {
             $parsedDefault = self::parseValue($default);
-            $_ENV[$key] = $parsedDefault;
             self::$cache[$key] = $parsedDefault;
             return $parsedDefault;
         }

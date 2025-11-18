@@ -4,7 +4,7 @@
 
 A lightweight .env loader for PHP projects.
 
-⚡ Fast, 🛡️ Safe, 🎯 Simple — designed for small to medium projects.
+Fast, Safe, Simple — designed for small to medium projects.
 
 ### Installation
 ```bash
@@ -28,8 +28,6 @@ echo env('DB_HOST', 'localhost');
 ```env
 DB_HOST=127.0.0.1
 DB_PORT=3306
-
-NUM_STRING="/123/" # This is a string, not a number
 ```
 
 ### Features
@@ -72,6 +70,10 @@ print_r(sysenv());               // Get all system variables
 - Validation
 
 Using [tiny-env-validator](https://github.com/datahihi1/tiny-env-validator.git)
+
+### Examples
+
+Examples are located in the `examples` directory for quick reference.
 
 ### Variable Interpolation
 
