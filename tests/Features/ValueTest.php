@@ -53,11 +53,18 @@ class ValueTest extends \PHPUnit\Framework\TestCase
         $rc = new \ReflectionClass(TinyEnv::class);
         if ($rc->hasProperty('cache')) {
             $prop = $rc->getProperty('cache');
+            // Only call setAccessible on PHP < 8.5 to avoid deprecation
+            if (PHP_VERSION_ID < 80500 && method_exists($prop, 'setAccessible')) {
+                $prop->setAccessible(true);
+            }
             $prop->setValue(null, []);
         }
         // Clear fileLinesCache as well to avoid cross-test caching
         if ($rc->hasProperty('fileLinesCache')) {
             $prop = $rc->getProperty('fileLinesCache');
+            if (PHP_VERSION_ID < 80500 && method_exists($prop, 'setAccessible')) {
+                $prop->setAccessible(true);
+            }
             $prop->setValue(null, []);
         }
         // Ensure .env is loaded fresh in next test
