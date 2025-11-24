@@ -3,6 +3,7 @@
 namespace Datahihi1\TinyEnv;
 
 use Exception;
+
 use function array_key_exists;
 use function count;
 use function func_num_args;
@@ -161,7 +162,11 @@ class TinyEnv
                 continue;
             }
             foreach (array_reverse($this->envFiles) as $fileName) {
-                if (strpos($fileName, '..') !== false || strpos($fileName, '/') !== false || strpos($fileName, '\\') !== false) {
+                if (
+                    strpos($fileName, '..') !== false ||
+                    strpos($fileName, '/') !== false ||
+                    strpos($fileName, '\\') !== false
+                ) {
                     continue;
                 }
                 if (!preg_match('/^\.env(\.\w+)?$/', $fileName)) {
@@ -248,7 +253,7 @@ class TinyEnv
         };
         $replacer = function (array $m) use (&$visited, $allowedOps, $rawMap, &$replacer): string {
             $var = isset($m[1]) && is_scalar($m[1]) ? (string) $m[1] : '';
-            $op  = isset($m[2]) && is_scalar($m[2]) ? (string) $m[2] : '';
+            $op = isset($m[2]) && is_scalar($m[2]) ? (string) $m[2] : '';
             $arg = isset($m[3]) && is_scalar($m[3]) ? (string) $m[3] : '';
 
             if ($arg !== '' && !preg_match('/^[A-Z0-9_\s-]*$/i', $arg)) {
@@ -279,14 +284,14 @@ class TinyEnv
 
             if ($env === null && is_array($rawMap) && array_key_exists($var, $rawMap)) {
                 $rawVal = $rawMap[$var];
-                if (strpos((string)$rawVal, '${') !== false) {
+                if (strpos((string) $rawVal, '${') !== false) {
                     $env = preg_replace_callback(
                         '/\${?([A-Z0-9_]+)(:?[-?])?([^}]*)}?/i',
                         $replacer,
-                        (string)$rawVal
+                        (string) $rawVal
                     );
                 } else {
-                    $env = (string)$rawVal;
+                    $env = (string) $rawVal;
                 }
             }
 
@@ -355,7 +360,7 @@ class TinyEnv
         $cleaned = preg_replace('/[\s\x00]/', '', strtolower($value));
         $cleanedDecoded = preg_replace('/[\s\x00]/', '', strtolower($decoded));
         $cleanedDoubleDecoded = preg_replace('/[\s\x00]/', '', strtolower($doubleDecoded));
-        
+
         $patterns = [
             '/php:\/\//',
             '/data:[^;]*;base64,/',
@@ -366,11 +371,13 @@ class TinyEnv
             '/gopher:/',
             '/file:\/\//',
         ];
-        
+
         foreach ($patterns as $pattern) {
-            if (preg_match($pattern, (string) $cleaned) ||
+            if (
+                preg_match($pattern, (string) $cleaned) ||
                 preg_match($pattern, (string) $cleanedDecoded) ||
-                preg_match($pattern, (string) $cleanedDoubleDecoded)) {
+                preg_match($pattern, (string) $cleanedDoubleDecoded)
+            ) {
                 return true;
             }
         }
@@ -447,7 +454,7 @@ class TinyEnv
         }
         flock($fh, LOCK_UN);
         fclose($fh);
-        
+
         if (empty($lines)) {
             return true;
         }
@@ -602,7 +609,7 @@ class TinyEnv
 
     /**
      * Clear the internal cache of env values and file lines.
-     * 
+     *
      * @param string|null $key Optional key to clear specific cache entry.
      */
     public static function clearCache(?string $key = null): void

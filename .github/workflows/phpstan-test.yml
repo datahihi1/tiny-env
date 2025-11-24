@@ -17,7 +17,7 @@ jobs:
         include:
           - php-version: 7.1
             phpstan-version: "1.4"
-          - php-version: 8.4
+          - php-version: 8.5
             phpstan-version: "2.1"
     name: PHP ${{ matrix.php-version }} - phpstan ${{ matrix.phpstan-version }}
     steps:
