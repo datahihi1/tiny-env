@@ -162,11 +162,7 @@ class TinyEnv
                 continue;
             }
             foreach (array_reverse($this->envFiles) as $fileName) {
-                if (
-                    strpos($fileName, '..') !== false ||
-                    strpos($fileName, '/') !== false ||
-                    strpos($fileName, '\\') !== false
-                ) {
+                if (strpos($fileName, '..') !== false || strpos($fileName, '/') !== false || strpos($fileName, '\\') !== false) {
                     continue;
                 }
                 if (!preg_match('/^\.env(\.\w+)?$/', $fileName)) {
@@ -253,7 +249,7 @@ class TinyEnv
         };
         $replacer = function (array $m) use (&$visited, $allowedOps, $rawMap, &$replacer): string {
             $var = isset($m[1]) && is_scalar($m[1]) ? (string) $m[1] : '';
-            $op = isset($m[2]) && is_scalar($m[2]) ? (string) $m[2] : '';
+            $op  = isset($m[2]) && is_scalar($m[2]) ? (string) $m[2] : '';
             $arg = isset($m[3]) && is_scalar($m[3]) ? (string) $m[3] : '';
 
             if ($arg !== '' && !preg_match('/^[A-Z0-9_\s-]*$/i', $arg)) {
@@ -284,14 +280,14 @@ class TinyEnv
 
             if ($env === null && is_array($rawMap) && array_key_exists($var, $rawMap)) {
                 $rawVal = $rawMap[$var];
-                if (strpos((string) $rawVal, '${') !== false) {
+                if (strpos((string)$rawVal, '${') !== false) {
                     $env = preg_replace_callback(
                         '/\${?([A-Z0-9_]+)(:?[-?])?([^}]*)}?/i',
                         $replacer,
-                        (string) $rawVal
+                        (string)$rawVal
                     );
                 } else {
-                    $env = (string) $rawVal;
+                    $env = (string)$rawVal;
                 }
             }
 
@@ -422,7 +418,9 @@ class TinyEnv
         if ($fh === false) {
             throw new Exception("Cannot read file");
         }
-        if (!flock($fh, LOCK_SH)) {
+        $isAndroid = strpos($file, '/storage/emulated/') === 0;
+
+        if (!$isAndroid && !flock($fh, LOCK_SH)) {
             fclose($fh);
             throw new Exception("Cannot lock file");
         }
@@ -564,8 +562,7 @@ class TinyEnv
     /**
      * Get a system environment variable as string or all system environment variables.
      *
-     * **Note:** TinyEnv only allows getting system environment variables.
-     * It does not support setting them.
+     * **Note:** Get only, never set them.
      *
      * @param  string|null $key The key of the environment variable or system variable.
      * @return string|array<string, string> The variable value, or all variables if $key is null.
@@ -609,7 +606,7 @@ class TinyEnv
 
     /**
      * Clear the internal cache of env values and file lines.
-     *
+     * 
      * @param string|null $key Optional key to clear specific cache entry.
      */
     public static function clearCache(?string $key = null): void

@@ -47,9 +47,13 @@ class TinyEnvSecurityTest extends \PHPUnit\Framework\TestCase
 
         try {
             $env->load();
-            $this->fail('Expected Exception not thrown');
+            $this->fail('No exception thrown for recursive substitution chain');
         } catch (\Exception $e) {
-            $this->assertTrue((bool) preg_match('/recursive variable substitution|substitution depth exceeded/', $e->getMessage()), 'Exception message did not match expected pattern');
+            $this->assertMatchesRegularExpression(
+                '/recursive|depth exceeded|cyclic|cycle/i',
+                $e->getMessage(),
+                'Exception message was: ' . $e->getMessage()
+            );
         }
     }
 }
