@@ -34,6 +34,7 @@ class ValueTest extends \PHPUnit\Framework\TestCase
         $this->envFile = __DIR__ . '/../../.env';
         $env = new TinyEnv(__DIR__ . '/../../');
         $env->populateSuperglobals(true);
+        $env->populateServerglobals(true);
         $env->envfiles([".env"]);
         $env->load($keys);
     }
@@ -96,5 +97,13 @@ class ValueTest extends \PHPUnit\Framework\TestCase
         $this->assertSame(8.7, $_ENV['MY_TEXT']);
         $this->assertTrue($_ENV['APP_DEBUG']);
         $this->assertNull($_ENV['NULL_VALUE'] ?? null);
+    }
+
+    public function testSuperglobalVarPopulation()
+    {
+        $this->assertSame('TinyEnv', $_SERVER['APP_NAME']);
+        $this->assertSame(8.7, $_SERVER['MY_TEXT']);
+        $this->assertTrue($_SERVER['APP_DEBUG']);
+        $this->assertNull($_SERVER['NULL_VALUE'] ?? null);
     }
 }

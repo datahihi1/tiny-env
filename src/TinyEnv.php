@@ -65,6 +65,8 @@ class TinyEnv
      * Writing into $_SERVER can be abused by .env files to change runtime environment
      * (PATH, HOME, etc.). Libraries or applications that need the old behavior
      * can opt-in by calling ->populateServerglobals(true).
+     * 
+     * @var bool
      */
     protected $populateServerglobals = false;
 
