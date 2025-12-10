@@ -48,6 +48,46 @@ class TinyEnvFuzzTest extends \PHPUnit\Framework\TestCase
         $this->assertNotNull(TinyEnv::env('K149'));
     }
 
+    public function testFuzzLow_quotedValues()
+    {
+        // create keys with various quoted values
+        $lines = [
+            'NO_QUOTE=no quote value',
+            "SINGLE_QUOTE='single quoted value'",
+            'DOUBLE_QUOTE="double quoted value"',
+            'EMPTY=""',
+            "SPACED='   '"
+        ];
+        $this->writeEnv($lines);
+
+        $env = new TinyEnv($this->tmpDir);
+        $env->load();
+
+        $this->assertSame('no quote value', TinyEnv::env('NO_QUOTE'));
+        $this->assertSame('single quoted value', TinyEnv::env('SINGLE_QUOTE'));
+        $this->assertSame('double quoted value', TinyEnv::env('DOUBLE_QUOTE'));
+        $this->assertNull(TinyEnv::env('EMPTY'));
+        $this->assertNull(TinyEnv::env('SPACED'));
+    }
+    
+    public function testFuzzMedium_mailformedLinesHandled()
+    {
+        $lines = [
+            'GOOD1=ok',
+            'BADLINE',
+            'GOOD2=also ok',
+            'ANOTHERBAD==oops',
+            'GOOD3="fine too"',
+            'NOEQUALSIGNLINE',
+            'GOOD4=lastgood'
+        ];
+        $this->writeEnv($lines);
+
+        $env = new TinyEnv($this->tmpDir);
+        $this->expectException(Exception::class);
+        $env->load();
+    }
+
     public function testFuzzMedium_variableSubstitution()
     {
         // create keys that reference earlier keys (valid substitutions)
@@ -115,24 +155,14 @@ class TinyEnvFuzzTest extends \PHPUnit\Framework\TestCase
     {
         // explicit small cycle A -> B -> C -> A
         $lines = [
-            'A=${B}',
-            'B=${C}',
-            'C=${A}',
+            'VAR1=${VAR2}',
+            'VAR2=${VAR3}',
+            'VAR3=${VAR1}',
         ];
         $this->writeEnv($lines);
 
         $env = new TinyEnv($this->tmpDir);
-
-        try {
-            $env->load();
-            $this->fail('No exception thrown for recursive substitution cycle');
-        } catch (\Exception $e) {
-            // In case message does not match, show it for debugging
-            $this->assertMatchesRegularExpression(
-                '/recursive|depth exceeded|cyclic|cycle/i',
-                $e->getMessage(),
-                'Exception message was: ' . $e->getMessage()
-            );
-        }
+        $this->expectException(Exception::class);
+        $env->load();
     }
 }

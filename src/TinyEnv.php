@@ -61,6 +61,14 @@ class TinyEnv
     protected $populateSuperglobals = false;
 
     /**
+     * By default do NOT write parsed values into PHP superglobals (e.g. $_SERVER).
+     * Writing into $_SERVER can be abused by .env files to change runtime environment
+     * (PATH, HOME, etc.). Libraries or applications that need the old behavior
+     * can opt-in by calling ->populateServerglobals(true).
+     */
+    protected $populateServerglobals = false;
+
+    /**
      * Maximum allowed recursive substitution depth to avoid DoS via long/cyclic chains.
      */
     private const MAX_SUBSTITUTION_DEPTH = 10;
@@ -79,14 +87,18 @@ class TinyEnv
      * @param string|string[] $rootDirs The root directory to load files from.
      * @param bool            $fastLoad Whether to load all the environment variables immediately.
      *      **Note:** Only .env files and enable populateSuperglobals - not recommended for production
-     *
+     * @param bool            $populateServerglobals Whether to populate $_SERVER when fastLoad is enabled.
+     * 
      * @throws Exception If the .env file cannot be read.
      */
-    public function __construct($rootDirs, bool $fastLoad = false)
+    public function __construct($rootDirs, bool $fastLoad = false, bool $populateServerglobals = false)
     {
         $this->rootDirs = (array) $rootDirs;
         if ($fastLoad) {
             $this->populateSuperglobals = true;
+            if ($populateServerglobals) {
+                $this->populateServerglobals = true;
+            }
             $this->loadInternal([], true);
         }
     }
@@ -101,6 +113,19 @@ class TinyEnv
     public function populateSuperglobals(bool $enable = true): self
     {
         $this->populateSuperglobals = $enable;
+        return $this;
+    }
+
+    /**
+     * Opt-in to populate PHP superglobals (e.g. $_SERVER) when env values are parsed.
+     * Default is false for safety.
+     *
+     * @param bool $enable
+     * @return $this
+     */
+    public function populateServerglobals(bool $enable = true): self
+    {
+        $this->populateServerglobals = $enable;
         return $this;
     }
 
@@ -233,7 +258,7 @@ class TinyEnv
             return;
         }
 
-        $value = trim($value, " \t\n\r\0\x0B\"");
+        $value = trim($value, " \t\n\r\0\x0B\"'");
 
         $forceString = false;
         if (strlen($value) >= 2 && $value[0] === '/' && substr($value, -1) === '/') {
@@ -333,6 +358,9 @@ class TinyEnv
         self::$cache[$key] = $parsed;
         if ($this->populateSuperglobals) {
             $_ENV[$key] = $parsed;
+        }
+        if ($this->populateServerglobals) {
+            $_SERVER[$key] = $parsed;
         }
     }
 

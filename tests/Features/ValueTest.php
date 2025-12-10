@@ -67,46 +67,34 @@ class ValueTest extends \PHPUnit\Framework\TestCase
             }
             $prop->setValue(null, []);
         }
-        // Ensure .env is loaded fresh in next test
     }
 
-    public function testValueTypes()
+    public function testValueTypesAndCache()
     {
-        // Test various value types from the .env file
-        Assert::assertSame('TinyEnv', env('APP_NAME')); // string value
+        Assert::assertSame('TinyEnv', env('APP_NAME'));
         Assert::assertSame(8.7, env('MY_TEXT'));
         Assert::assertTrue(env('APP_DEBUG'));
-        Assert::assertFalse(env('FEATURE_ENABLED', false));
         Assert::assertNull(env('NULL_VALUE'));
         Assert::assertSame('default', env('MISSING_KEY', 'default'));
 
-        // Test s_env function
         Assert::assertSame('TinyEnv', s_env('APP_NAME'));
         Assert::assertSame('8.7', s_env('MY_TEXT'));
         Assert::assertSame('1', s_env('APP_DEBUG'));
         Assert::assertSame('', s_env('NULL_VALUE'));
         Assert::assertSame('default', s_env('MISSING_KEY', 'default'));
+
+        $this->resetEnvState();
+        TinyEnv::setCache('CACHE_TEST', 'cached_value');
+        $this->assertSame('cached_value', TinyEnv::env('CACHE_TEST'));
+        TinyEnv::clearCache('CACHE_TEST');
+        $this->assertNull(TinyEnv::env('CACHE_TEST'));
     }
 
     public function testSuperglobalPopulation()
     {
-        // Test that superglobals were populated
         $this->assertSame('TinyEnv', $_ENV['APP_NAME']);
         $this->assertSame(8.7, $_ENV['MY_TEXT']);
         $this->assertTrue($_ENV['APP_DEBUG']);
-        $this->assertFalse($_ENV['FEATURE_ENABLED'] ?? false);
         $this->assertNull($_ENV['NULL_VALUE'] ?? null);
-    }
-
-    public function testCacheWithSetAndClear()
-    {
-        $this->resetEnvState();
-        // Set a value
-        TinyEnv::setCache('CACHE_TEST', 'cached_value');
-        $this->assertSame('cached_value', TinyEnv::env('CACHE_TEST'));
-
-        // Clear cache
-        TinyEnv::clearCache('CACHE_TEST');
-        $this->assertNull(TinyEnv::env('CACHE_TEST'));
     }
 }

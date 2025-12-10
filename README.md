@@ -42,6 +42,7 @@ $env->load([], noFile: true); // Load but not check .env file existence
 #### 2. Fast load
 ```php
 $env = new TinyEnv(__DIR__, true); // Load immediately
+$env = new TinyEnv(__DIR__, true, true); // Load immediately and populate $_SERVER
 ```
 
 #### 3. Multiple .env files
@@ -53,6 +54,7 @@ $env->envfiles(['.env', '.env.local', '.env.production']);
 ```php
 $env = new TinyEnv(__DIR__);
 $env->populateSuperglobals(); // Enable superglobals population
+$env->populateServerglobals(); // Enable server globals population
 $env->load();
 ```
 
@@ -105,6 +107,7 @@ REQUIRED → throws Exception
 >
 > - Comments start with `#`.
 > - Variable names: `A-Z`, `0-9`, `_`.
+> - Spaces around `=` still valid but not recommended.
 > - Values are auto-parsed into correct types:
 >   - `"true", "yes", "on"` → `true`
 >   - `"false", "no", "off"` → `false`

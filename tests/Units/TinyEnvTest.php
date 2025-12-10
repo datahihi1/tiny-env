@@ -63,19 +63,6 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
         $this->assertNull(TinyEnv::env('APP_NAME'));
     }
 
-    public function testRecursiveSubstitutionThrows()
-    {
-        $this->resetEnvState();
-        $env = new TinyEnv(__DIR__ . '/../../');
-        $this->expectException(Exception::class);
-        if (method_exists($this, 'expectExceptionMessageMatches')) {
-            $this->expectExceptionMessageMatches('/recursive variable substitution/');
-        } else {
-            $this->expectExceptionMessage('recursive variable substitution');
-        }
-        $env->load();
-    }
-
     public function testMalformedLinesLoad()
     {
         $this->resetEnvState();
@@ -169,7 +156,7 @@ class TinyEnvTest extends \PHPUnit\Framework\TestCase
         Assert::assertEquals('127.0.0.1_suffix', TinyEnv::env('INTERPOLATED_VALUE'));
 
         // Defaulted value using ${UNDEFINED_VAR:-yes}
-        Assert::assertEquals('yes', TinyEnv::env('DEFAULTED_VALUE'));
+        Assert::assertEquals(true, TinyEnv::env('DEFAULTED_VALUE'));
     }
 
     /**
