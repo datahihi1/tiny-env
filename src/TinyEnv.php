@@ -364,6 +364,11 @@ class TinyEnv
         if ($this->populateServerglobals) {
             $_SERVER[$key] = $parsed;
         }
+        if ($parsed === null) {
+            putenv($key);
+        } else {
+            putenv($key . '=' . (is_bool($parsed) ? ($parsed ? 'true' : 'false') : (string)$parsed));
+        }
     }
 
     /**
