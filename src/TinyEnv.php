@@ -3,6 +3,7 @@
 namespace Datahihi1\TinyEnv;
 
 use Exception;
+
 use function array_key_exists;
 use function count;
 use function func_num_args;
@@ -60,6 +61,16 @@ class TinyEnv
     protected $populateSuperglobals = false;
 
     /**
+     * By default do NOT write parsed values into PHP superglobals (e.g. $_SERVER).
+     * Writing into $_SERVER can be abused by .env files to change runtime environment
+     * (PATH, HOME, etc.). Libraries or applications that need the old behavior
+     * can opt-in by calling ->populateServerglobals(true).
+     * 
+     * @var bool
+     */
+    protected $populateServerglobals = false;
+
+    /**
      * Maximum allowed recursive substitution depth to avoid DoS via long/cyclic chains.
      */
     private const MAX_SUBSTITUTION_DEPTH = 10;
@@ -78,14 +89,18 @@ class TinyEnv
      * @param string|string[] $rootDirs The root directory to load files from.
      * @param bool            $fastLoad Whether to load all the environment variables immediately.
      *      **Note:** Only .env files and enable populateSuperglobals - not recommended for production
-     *
+     * @param bool            $populateServerglobals Whether to populate $_SERVER when fastLoad is enabled.
+     * 
      * @throws Exception If the .env file cannot be read.
      */
-    public function __construct($rootDirs, bool $fastLoad = false)
+    public function __construct($rootDirs, bool $fastLoad = false, bool $populateServerglobals = false)
     {
         $this->rootDirs = (array) $rootDirs;
         if ($fastLoad) {
             $this->populateSuperglobals = true;
+            if ($populateServerglobals) {
+                $this->populateServerglobals = true;
+            }
             $this->loadInternal([], true);
         }
     }
@@ -100,6 +115,19 @@ class TinyEnv
     public function populateSuperglobals(bool $enable = true): self
     {
         $this->populateSuperglobals = $enable;
+        return $this;
+    }
+
+    /**
+     * Opt-in to populate PHP superglobals (e.g. $_SERVER) when env values are parsed.
+     * Default is false for safety.
+     *
+     * @param bool $enable
+     * @return $this
+     */
+    public function populateServerglobals(bool $enable = true): self
+    {
+        $this->populateServerglobals = $enable;
         return $this;
     }
 
@@ -232,7 +260,7 @@ class TinyEnv
             return;
         }
 
-        $value = trim($value, " \t\n\r\0\x0B\"");
+        $value = trim($value, " \t\n\r\0\x0B\"'");
 
         $forceString = false;
         if (strlen($value) >= 2 && $value[0] === '/' && substr($value, -1) === '/') {
@@ -333,6 +361,14 @@ class TinyEnv
         if ($this->populateSuperglobals) {
             $_ENV[$key] = $parsed;
         }
+        if ($this->populateServerglobals) {
+            $_SERVER[$key] = $parsed;
+        }
+        if ($parsed === null) {
+            putenv($key);
+        } else {
+            putenv($key . '=' . (is_bool($parsed) ? ($parsed ? 'true' : 'false') : (string)$parsed));
+        }
     }
 
     /**
@@ -355,7 +391,7 @@ class TinyEnv
         $cleaned = preg_replace('/[\s\x00]/', '', strtolower($value));
         $cleanedDecoded = preg_replace('/[\s\x00]/', '', strtolower($decoded));
         $cleanedDoubleDecoded = preg_replace('/[\s\x00]/', '', strtolower($doubleDecoded));
-        
+
         $patterns = [
             '/php:\/\//',
             '/data:[^;]*;base64,/',
@@ -366,11 +402,13 @@ class TinyEnv
             '/gopher:/',
             '/file:\/\//',
         ];
-        
+
         foreach ($patterns as $pattern) {
-            if (preg_match($pattern, (string) $cleaned) ||
+            if (
+                preg_match($pattern, (string) $cleaned) ||
                 preg_match($pattern, (string) $cleanedDecoded) ||
-                preg_match($pattern, (string) $cleanedDoubleDecoded)) {
+                preg_match($pattern, (string) $cleanedDoubleDecoded)
+            ) {
                 return true;
             }
         }
@@ -415,7 +453,9 @@ class TinyEnv
         if ($fh === false) {
             throw new Exception("Cannot read file");
         }
-        if (!flock($fh, LOCK_SH)) {
+        $isAndroid = strpos($file, '/storage/emulated/') === 0;
+
+        if (!$isAndroid && !flock($fh, LOCK_SH)) {
             fclose($fh);
             throw new Exception("Cannot lock file");
         }
@@ -447,7 +487,7 @@ class TinyEnv
         }
         flock($fh, LOCK_UN);
         fclose($fh);
-        
+
         if (empty($lines)) {
             return true;
         }
@@ -547,6 +587,7 @@ class TinyEnv
 
         if (func_num_args() > 1) {
             $parsedDefault = self::parseValue($default);
+            self::$cache[$key] = $parsedDefault;
             return $parsedDefault;
         }
 
@@ -556,8 +597,7 @@ class TinyEnv
     /**
      * Get a system environment variable as string or all system environment variables.
      *
-     * **Note:** TinyEnv only allows getting system environment variables.
-     * It does not support setting them.
+     * **Note:** Get only, never set them.
      *
      * @param  string|null $key The key of the environment variable or system variable.
      * @return string|array<string, string> The variable value, or all variables if $key is null.

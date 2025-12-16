@@ -25,6 +25,7 @@ We will respond as soon as possible and coordinate a fix and disclosure timeline
 - Set proper file permissions for `.env` (e.g., `600` or `640`).
 - Do not hardcode sensitive keys or secrets in your codebase.
 - Always use the latest version of TinyEnv for the latest security patches.
+- Encrypt sensitive values in your `.env` file using tools like [tiny-env-encryptor](https://github.com/datahihi1/tiny-env-encryptor.git).
 
 ## Disclosure Policy
 

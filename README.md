@@ -6,7 +6,7 @@ Fast, Safe, Simple — designed for small to medium projects.
 
 ### Installation
 ```bash
-composer require datahihi1/tiny-env:^1.0.14
+composer require datahihi1/tiny-env:^1.0.15
 ```
 
 ### Quick Start
@@ -31,15 +31,17 @@ DB_PORT=3306
 ### Features
 #### 1. load() – Standard load
 ```php
-$env->load();              // Load all
-$env->load(['DB_HOST']);   // Load specific keys
-$env->load(noFile:true);   // Load but skip checking .env file existence
+$env->load();                   // Load all
+$env->load(['DB_HOST']);        // Load specific keys
+$env->load(forceReload: true);  // Overwrite existing values
+$env->load(noFile:true);        // Load but skip checking .env file existence
 ```
 
 #### 2. Fast load
 ```php
-$env = new TinyEnv(__DIR__, true); // Load immediately
-# $env->load(); // No need to call load() again
+$env = new TinyEnv(__DIR__, true);          // Load immediately
+$env = new TinyEnv(__DIR__, true, true);    // Load immediately and populate $_SERVER
+# $env->load();                             // No need to call load() again
 ```
 
 #### 3. Multiple .env files
@@ -54,7 +56,8 @@ TinyEnv always loads `.env` first, then any additional files in the order specif
 #### Populate Superglobals
 ```php
 $env = new TinyEnv(__DIR__);
-$env->populateSuperglobals(); // Enable superglobals population
+$env->populateSuperglobals();   // Enable superglobals population
+$env->populateServerglobals();  // Enable $_SERVER population
 $env->load();
 ```
 
@@ -71,6 +74,10 @@ print_r(sysenv());               // Get all system variables
 - Validation
 
 Using [tiny-env-validator](https://github.com/datahihi1/tiny-env-validator.git)
+
+- Encryption
+
+Using [tiny-env-encryptor](https://github.com/datahihi1/tiny-env-encryptor.git)
 
 ### Variable Interpolation
 
@@ -102,10 +109,12 @@ REQUIRED → throws Exception
 >
 > - Comments start with `#`.
 > - Variable names: `A-Z`, `0-9`, `_`.
+> - Spaces around `=` still valid but not recommended.
 > - Values are auto-parsed into correct types:
 >   - `"true", "yes", "on"` → `true`
 >   - `"false", "no", "off"` → `false`
 >   - `"123"` → `int`
->   - `"12.3"` → `float`
+>   - `"12.3"` → `float` or `double`
 >   - `"null"` or empty → `null`
 > - TinyEnv considers yes/no, on/off to be boolean values.
+> - Use `"/value/"` to force string type.
