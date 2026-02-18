@@ -7,11 +7,13 @@ A lightweight .env loader for PHP projects.
 Fast, Safe, Simple — designed for small to medium projects.
 
 ### Installation
+
 ```bash
 composer require datahihi1/tiny-env:dev-test
 ```
 
 ### Quick Start
+
 ```php
 require 'vendor/autoload.php';
 
@@ -35,14 +37,13 @@ DB_PORT=3306
 ```php
 $env->load();              // Load all
 $env->load(['DB_HOST']);   // Load specific keys
-$env->load([], forceReload: true);    // Overwrite existing values
-$env->load([], noFile: true); // Load but not check .env file existence
+$env->load([], true);      // Force reload (overwrite existing values)
+$env->load([], false, true); // Load without requiring .env file to exist
 ```
 
 #### 2. Fast load
 ```php
-$env = new TinyEnv(__DIR__, true); // Load immediately
-$env = new TinyEnv(__DIR__, true, true); // Load immediately and populate $_SERVER
+$env = new TinyEnv(__DIR__, true); // Load immediately and populate $_SERVER|$_ENV
 ```
 
 #### 3. Multiple .env files
