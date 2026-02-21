@@ -365,7 +365,7 @@ class TinyEnv
         $value = preg_replace_callback('/\$\{([A-Z0-9_]+)(:?[-?])?([^}]*)\}/i', $replacer, $value);
 
         if (is_string($value) && self::isDangerous($value)) {
-            throw new Exception("TinyEnv detected dangerous environment value: {$value}");
+            throw new Exception("TinyEnv rejected dangerous env value");
         }
 
         $parsed = $forceString ? (string) $value : self::parseValue($value);
@@ -530,7 +530,6 @@ class TinyEnv
 
         $same = false;
 
-        // 1. Check Inode and Device (best method, but may not be available on some systems/PHP versions)
         $statIno = $stat['ino'];
         $statDev = $stat['dev'];
         $pathIno = $statPath['ino'];
@@ -539,7 +538,6 @@ class TinyEnv
             $same = ($statIno === $pathIno && $statDev === $pathDev);
         }
 
-        // 2. Fallback to Size and MTime comparison if Inode/Device not available
         if (!$same) {
             $same = ($stat['size'] === $statPath['size'] && $stat['mtime'] === $statPath['mtime']);
         }
@@ -573,8 +571,6 @@ class TinyEnv
         flock($fh, LOCK_UN);
         fclose($fh);
 
-        $this->currentEnvFile = '__global__';
-
         if (empty($lines)) {
             return true;
         }
@@ -598,6 +594,9 @@ class TinyEnv
         foreach ($lines as $line) {
             $this->parseAndSetEnvLine($line, $filter, $rawMap);
         }
+
+        $this->currentEnvFile = '__global__';
+
         return true;
     }
 
@@ -725,7 +724,7 @@ class TinyEnv
     /**
      * Merge all cache namespaces into one flat key => value map (later namespace overwrites).
      *
-     * @return array<string, mixed>
+     * @return array<mixed>
      */
     private static function flattenCache(): array
     {
