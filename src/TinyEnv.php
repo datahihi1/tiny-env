@@ -43,7 +43,7 @@ class TinyEnv
      */
     protected static $cache = [];
     /**
-     * List of .env files to load, in order of priority. **.env** is always loaded first and cannot be removed.
+     * List of .env files to load, in order of priority. `.env` is always loaded first and cannot be removed.
      *
      * @var string[]
      */
@@ -57,20 +57,14 @@ class TinyEnv
     protected $currentEnvFile = '__global__';
 
     /**
-     * By default do NOT write parsed values into PHP superglobals (e.g. $_ENV).
-     * Writing into $_ENV can be abused by .env files to change runtime environment
-     * (PATH, HOME, etc.). Libraries or applications that need the old behavior
-     * can opt-in by calling ->populateSuperglobals(true).
+     * Whether to write parsed env values into PHP superglobals (e.g. $_ENV). Default is false for safety.
      *
      * @var bool
      */
     protected $populateSuperglobals = false;
 
     /**
-     * By default do NOT write parsed values into PHP superglobals (e.g. $_SERVER).
-     * Writing into $_SERVER can be abused by .env files to change runtime environment
-     * (PATH, HOME, etc.). Libraries or applications that need the old behavior
-     * can opt-in by calling ->populateServerglobals(true).
+     * Whether to write parsed env values into $_SERVER superglobal. Default is false for safety.
      * 
      * @var bool
      */
@@ -94,7 +88,7 @@ class TinyEnv
      *
      * @param string|string[] $rootDirs The root directory to load files from.
      * @param bool            $fastLoad Whether to load all the environment variables immediately.
-     *      **Note:** Only .env files and enable populateSuperglobals|populateServerglobals - not recommended for production.
+     *      **Note:** Only `.env` and enable populateSuperglobals|populateServerglobals - not recommended for production.
      * 
      * @throws Exception If the .env file cannot be read.
      */
@@ -137,7 +131,7 @@ class TinyEnv
     /**
      * Specify which env files to load (in order of priority, later files override earlier ones).
      * 
-     * **Note:** .env is always loaded first and cannot be removed.
+     * `.env` is always loaded first and cannot be removed.
      *
      * @param  array<int, string> $files List of .env files to load, e.g., ['.env.local', '.env.production']
      * @return self
@@ -447,11 +441,11 @@ class TinyEnv
     private function getCachedValue(string $var): ?string
     {
         $ns = $this->currentEnvFile;
-        $nsEntry = isset(self::$cache[$ns]) ? self::$cache[$ns] : null;
+        $nsEntry = self::$cache[$ns] ?? null;
         if (is_array($nsEntry) && array_key_exists($var, $nsEntry)) {
             return (string) $nsEntry[$var];
         }
-        $globalEntry = isset(self::$cache['__global__']) ? self::$cache['__global__'] : null;
+        $globalEntry = self::$cache['__global__'] ?? null;
         if (is_array($globalEntry) && array_key_exists($var, $globalEntry)) {
             return (string) $globalEntry[$var];
         }

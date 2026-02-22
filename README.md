@@ -35,25 +35,25 @@ DB_PORT=3306
 ### Features
 #### 1. load() – Standard load
 ```php
-$env->load();              // Load all
-$env->load(['DB_HOST']);   // Load specific keys
-$env->load([], true);      // Force reload (overwrite existing values)
-$env->load([], false, true); // Load without requiring .env file to exist
+$env->load();                           // Load all
+$env->load(specificKeys: ['DB_HOST']);  // Load specific keys
+$env->load([], forceReload: true);      // Force reload (overwrite existing values)
+$env->load([], noFile: true);           // Load without requiring .env file to exist
 ```
 
 #### 2. Fast load
 ```php
-$env = new TinyEnv(__DIR__, true); // Load immediately and populate $_SERVER|$_ENV
+$env = new TinyEnv(__DIR__, true); // Load immediately and populate $_SERVER|$_ENV but only .env and not recommended for production
 ```
 
 #### 3. Multiple .env files
 ```php
-$env->envfiles(['.env', '.env.local', '.env.production']);
+$env->envfiles(['.env', '.env.local', '.env.production']); // Load in order, later files override earlier ones, not work with fastLoad
 ```
 
 #### Populate Superglobals
 ```php
-$env = new TinyEnv(__DIR__);
+$env = new TinyEnv(__DIR__); // By default, superglobals are NOT populated to avoid unintended side effects. You can enable it explicitly:
 $env->populateSuperglobals(); // Enable superglobals population
 $env->populateServerglobals(); // Enable server globals population
 $env->load();
