@@ -5,13 +5,16 @@ namespace Datahihi1\TinyEnv;
 use Exception;
 
 use function array_key_exists;
+use function chr;
 use function count;
 use function func_num_args;
 use function in_array;
 use function is_array;
+use function is_bool;
 use function is_file;
 use function is_scalar;
 use function is_string;
+use function ord;
 use function strlen;
 
 /**
@@ -32,39 +35,36 @@ class TinyEnv
      */
     protected $rootDirs;
     /**
-     * Cached env values
+     * Cached env values, namespaced by source file to reduce cross-instance poisoning.
+     * Structure: [ filePath => [ key => value, ... ], '__global__' => [ ... ] ]
+     * Top-level non-array values come from setCache($key, $value) or env($key, $default).
      *
-     * @var array<string, mixed>
+     * @var array<string, array<string, mixed>|mixed>
      */
     protected static $cache = [];
     /**
-     * Cached file lines to avoid re-reading files
-     *
-     * @var array<string, string[]>
-     */
-    protected static $fileLinesCache = [];
-    /**
-     * List of .env files to load, in order of priority.
+     * List of .env files to load, in order of priority. `.env` is always loaded first and cannot be removed.
      *
      * @var string[]
      */
     protected $envFiles = ['.env'];
 
     /**
-     * By default do NOT write parsed values into PHP superglobals (e.g. $_ENV).
-     * Writing into $_ENV can be abused by .env files to change runtime environment
-     * (PATH, HOME, etc.). Libraries or applications that need the old behavior
-     * can opt-in by calling ->populateSuperglobals(true).
+     * Current env file being processed (used to namespace writes to the cache).
+     *
+     * @var string
+     */
+    protected $currentEnvFile = '__global__';
+
+    /**
+     * Whether to write parsed env values into PHP superglobals (e.g. $_ENV). Default is false for safety.
      *
      * @var bool
      */
     protected $populateSuperglobals = false;
 
     /**
-     * By default do NOT write parsed values into PHP superglobals (e.g. $_SERVER).
-     * Writing into $_SERVER can be abused by .env files to change runtime environment
-     * (PATH, HOME, etc.). Libraries or applications that need the old behavior
-     * can opt-in by calling ->populateServerglobals(true).
+     * Whether to write parsed env values into $_SERVER superglobal. Default is false for safety.
      * 
      * @var bool
      */
@@ -88,19 +88,16 @@ class TinyEnv
      *
      * @param string|string[] $rootDirs The root directory to load files from.
      * @param bool            $fastLoad Whether to load all the environment variables immediately.
-     *      **Note:** Only .env files and enable populateSuperglobals - not recommended for production
-     * @param bool            $populateServerglobals Whether to populate $_SERVER when fastLoad is enabled.
+     *      **Note:** Only `.env` and enable populateSuperglobals|populateServerglobals - not recommended for production.
      * 
      * @throws Exception If the .env file cannot be read.
      */
-    public function __construct($rootDirs, bool $fastLoad = false, bool $populateServerglobals = false)
+    public function __construct($rootDirs, bool $fastLoad = false)
     {
         $this->rootDirs = (array) $rootDirs;
         if ($fastLoad) {
             $this->populateSuperglobals = true;
-            if ($populateServerglobals) {
-                $this->populateServerglobals = true;
-            }
+            $this->populateServerglobals = true;
             $this->loadInternal([], true);
         }
     }
@@ -133,6 +130,8 @@ class TinyEnv
 
     /**
      * Specify which env files to load (in order of priority, later files override earlier ones).
+     * 
+     * `.env` is always loaded first and cannot be removed.
      *
      * @param  array<int, string> $files List of .env files to load, e.g., ['.env.local', '.env.production']
      * @return self
@@ -178,7 +177,7 @@ class TinyEnv
             return $this;
         }
         if ($forceReload) {
-            self::$fileLinesCache = [];
+            self::$cache = [];
         }
         $specificKeys = (array) $specificKeys;
         $filter = !empty($specificKeys) ? $specificKeys : null;
@@ -197,7 +196,19 @@ class TinyEnv
                 }
                 $file = $realDir . DIRECTORY_SEPARATOR . $fileName;
                 $realFile = realpath($file);
-                if ($realFile === false || strpos($realFile, $realDir) !== 0) {
+                if ($realFile === false) {
+                    continue;
+                }
+
+                $normRealDir = rtrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $realDir), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                $normRealFile = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $realFile);
+
+                $startsWith = DIRECTORY_SEPARATOR === '\\'
+                    ? strcasecmp(substr($normRealFile, 0, strlen($normRealDir)), $normRealDir) === 0
+                    : substr($normRealFile, 0, strlen($normRealDir)) === $normRealDir;
+
+
+                if (!$startsWith) {
                     continue;
                 }
                 if (is_file($realFile) && is_readable($realFile)) {
@@ -235,7 +246,7 @@ class TinyEnv
         }
         $eqPos = strpos($line, '=');
         if ($eqPos === false) {
-            throw new Exception("Malformed .env line (missing '='): $line");
+            throw new Exception('Malformed .env line (missing "=")');
         }
 
         $key = trim(substr($line, 0, $eqPos));
@@ -243,7 +254,7 @@ class TinyEnv
         $value = self::stripEnvComment($value);
 
         if ($key === '' || !preg_match('/^[A-Z_][A-Z0-9_]*$/i', $key) || strlen($key) > 255) {
-            throw new Exception("Malformed .env line - invalid key: {$key}");
+            throw new Exception('Malformed .env line - invalid key');
         }
 
         $trimmedValueForCheck = ltrim(substr($line, $eqPos + 1));
@@ -252,7 +263,7 @@ class TinyEnv
                 !isset($trimmedValueForCheck[1])
                 || ($trimmedValueForCheck[1] !== '"' && $trimmedValueForCheck[1] !== "'")
             ) {
-                throw new Exception("Malformed .env line - invalid value: {$line}");
+                throw new Exception('Malformed .env line - invalid value');
             }
         }
 
@@ -280,42 +291,37 @@ class TinyEnv
             $arg = isset($m[3]) && is_scalar($m[3]) ? (string) $m[3] : '';
 
             if ($arg !== '' && !preg_match('/^[A-Z0-9_\s-]*$/i', $arg)) {
-                throw new Exception("TinyEnv: invalid characters in substitution argument {$arg}");
+                throw new Exception("TinyEnv detected invalid characters in substitution argument");
             }
 
             $msgOp = isset($m[0]) && is_scalar($m[0]) ? (string) $m[0] : '';
             if (!in_array($op, $allowedOps, true)) {
-                throw new Exception("TinyEnv: invalid substitution operator {$op}");
+                throw new Exception("TinyEnv detected invalid substitution operator");
             }
 
             if (in_array($var, $visited, true)) {
-                throw new Exception("TinyEnv: recursive variable substitution detected for {$var}");
+                throw new Exception("TinyEnv detected recursive variable substitution for {$var}");
             }
 
             if (count($visited) >= self::MAX_SUBSTITUTION_DEPTH) {
-                throw new Exception('TinyEnv: substitution depth exceeded ' . self::MAX_SUBSTITUTION_DEPTH);
+                throw new Exception('TinyEnv detected substitution depth exceeded');
             }
 
             $visited[] = $var;
 
-            /**
-             *
-             *
-             * @var string|int|null $env
-             */
-            $env = self::$cache[$var] ?? ($_ENV[$var] ?? null);
-
+            $env = $this->getCachedValue($var);
+            if ($env === null && array_key_exists($var, $_ENV)) {
+                $env = (string) $_ENV[$var];
+            }
             if ($env === null && is_array($rawMap) && array_key_exists($var, $rawMap)) {
                 $rawVal = $rawMap[$var];
-                if (strpos((string)$rawVal, '${') !== false) {
-                    $env = preg_replace_callback(
+                $env = strpos((string)$rawVal, '${') !== false
+                    ? preg_replace_callback(
                         '/\${?([A-Z0-9_]+)(:?[-?])?([^}]*)}?/i',
                         $replacer,
                         (string)$rawVal
-                    );
-                } else {
-                    $env = (string)$rawVal;
-                }
+                    )
+                    : (string) $rawVal;
             }
 
             switch ($op) {
@@ -327,13 +333,13 @@ class TinyEnv
                     break;
                 case '?':
                     if ($env === null || $env === '') {
-                        throw new Exception("TinyEnv: missing required variable {$var}");
+                        throw new Exception("TinyEnv detected missing required variable: {$var}");
                     }
                     $resolved = $env;
                     break;
                 case ':?':
                     if ($env === null) {
-                        $msg = $arg !== '' ? $arg : "TinyEnv: missing required variable {$var}";
+                        $msg = $arg !== '' ? $arg : "TinyEnv detected missing required variable: {$var}";
                         throw new Exception($msg);
                     }
                     $resolved = $env;
@@ -344,7 +350,7 @@ class TinyEnv
 
             $out = self::stringifyEnvValue($resolved);
             if (self::isDangerous($out)) {
-                throw new Exception("TinyEnv: rejected dangerous env value {$out}");
+                throw new Exception("TinyEnv detected dangerous environment value: {$out}");
             }
             array_pop($visited);
             return $out;
@@ -353,11 +359,14 @@ class TinyEnv
         $value = preg_replace_callback('/\$\{([A-Z0-9_]+)(:?[-?])?([^}]*)\}/i', $replacer, $value);
 
         if (is_string($value) && self::isDangerous($value)) {
-            throw new Exception("TinyEnv: rejected dangerous env value {$value}");
+            throw new Exception("TinyEnv rejected dangerous env value");
         }
 
         $parsed = $forceString ? (string) $value : self::parseValue($value);
-        self::$cache[$key] = $parsed;
+        $ns = $this->currentEnvFile;
+        $nsCache = (isset(self::$cache[$ns]) && is_array(self::$cache[$ns])) ? self::$cache[$ns] : [];
+        $nsCache[$key] = $parsed;
+        self::$cache[$ns] = $nsCache;
         if ($this->populateSuperglobals) {
             $_ENV[$key] = $parsed;
         }
@@ -367,7 +376,7 @@ class TinyEnv
         if ($parsed === null) {
             putenv($key);
         } else {
-            putenv($key . '=' . (is_bool($parsed) ? ($parsed ? 'true' : 'false') : (string)$parsed));
+            putenv($key . '=' . (is_bool($parsed) ? ($parsed ? 'true' : 'false') : self::stringifyEnvValue($parsed)));
         }
     }
 
@@ -401,6 +410,13 @@ class TinyEnv
             '/compress:/',
             '/gopher:/',
             '/file:\/\//',
+            '/ogg:/',
+            '/rar:/',
+            '/zlib:/',
+            '/glob:/',
+            '/ssh2:/',
+            '/ftp:/',
+            '/ftps:/',
         ];
 
         foreach ($patterns as $pattern) {
@@ -416,6 +432,35 @@ class TinyEnv
     }
 
     /**
+     * Retrieve a cached value by name, preferring the current file namespace,
+     * then the global namespace, then other namespaces.
+     *
+     * @param string $var
+     * @return string|null
+     */
+    private function getCachedValue(string $var): ?string
+    {
+        $ns = $this->currentEnvFile;
+        $nsEntry = self::$cache[$ns] ?? null;
+        if (is_array($nsEntry) && array_key_exists($var, $nsEntry)) {
+            return (string) $nsEntry[$var];
+        }
+        $globalEntry = self::$cache['__global__'] ?? null;
+        if (is_array($globalEntry) && array_key_exists($var, $globalEntry)) {
+            return (string) $globalEntry[$var];
+        }
+        foreach (self::$cache as $file => $map) {
+            if ($file === $ns || $file === '__global__') {
+                continue;
+            }
+            if (is_array($map) && array_key_exists($var, $map)) {
+                return (string) $map[$var];
+            }
+        }
+        return null;
+    }
+
+    /**
      * Remove inline comment (not in quotes) from env value.
      *
      * @param  string $value
@@ -428,6 +473,11 @@ class TinyEnv
         $inDouble = false;
         for ($i = 0; $i < $len; $i++) {
             $c = $value[$i];
+            if ($c === '\\') {
+                $i++;
+                continue;
+            }
+
             if ($c === "'" && !$inDouble) {
                 $inSingle = !$inSingle;
             } elseif ($c === '"' && !$inSingle) {
@@ -453,18 +503,45 @@ class TinyEnv
         if ($fh === false) {
             throw new Exception("Cannot read file");
         }
-        $isAndroid = strpos($file, '/storage/emulated/') === 0;
-
-        if (!$isAndroid && !flock($fh, LOCK_SH)) {
+        if (!flock($fh, LOCK_SH)) {
             fclose($fh);
             throw new Exception("Cannot lock file");
         }
         $stat = @fstat($fh);
-        if ($stat === false || !is_file($file)) {
+        if ($stat === false) {
             flock($fh, LOCK_UN);
             fclose($fh);
             throw new Exception("File changed during read");
         }
+
+        clearstatcache(true, $file);
+        $statPath = @stat($file);
+        if ($statPath === false) {
+            flock($fh, LOCK_UN);
+            fclose($fh);
+            throw new Exception("File changed during read");
+        }
+
+        $same = false;
+
+        $statIno = $stat['ino'];
+        $statDev = $stat['dev'];
+        $pathIno = $statPath['ino'];
+        $pathDev = $statPath['dev'];
+        if ($statIno !== 0 && $pathIno !== 0) {
+            $same = ($statIno === $pathIno && $statDev === $pathDev);
+        }
+
+        if (!$same) {
+            $same = ($stat['size'] === $statPath['size'] && $stat['mtime'] === $statPath['mtime']);
+        }
+
+        if (!$same) {
+            flock($fh, LOCK_UN);
+            fclose($fh);
+            throw new Exception("File changed during read");
+        }
+        $this->currentEnvFile = $file;
         $lines = [];
         $lineCount = 0;
         while (($line = fgets($fh)) !== false) {
@@ -511,6 +588,9 @@ class TinyEnv
         foreach ($lines as $line) {
             $this->parseAndSetEnvLine($line, $filter, $rawMap);
         }
+
+        $this->currentEnvFile = '__global__';
+
         return true;
     }
 
@@ -550,16 +630,108 @@ class TinyEnv
             return null;
         }
         if (preg_match('/^-?\d+$/', $value)) {
-            $int = (int) $value;
-            if ((string) $int !== $value) {
+            if (!self::intFits($value)) {
                 return $value;
             }
-            return $int;
+            return (int) $value;
         }
         if (preg_match('/^-?\d+\.\d+$/', $value)) {
             return (float) $value;
         }
         return $value;
+    }
+
+    /**
+     * Check whether a decimal integer string fits in the platform integer range
+     * without causing overflow. Uses BCMath if available, else string-length
+     * and lexicographic comparisons.
+     *
+     * @param string $value Decimal integer string, may be negative
+     * @return bool True if it fits in PHP int range
+     */
+    private static function intFits(string $value): bool
+    {
+        $neg = ($value[0] === '-');
+        $abs = $neg ? substr($value, 1) : $value;
+        $max = (string) PHP_INT_MAX;
+
+        if (function_exists('bccomp') && function_exists('bcadd')) {
+            if ($neg) {
+                $limit = bcadd($max, '1');
+                return bccomp($abs, $limit) <= 0;
+            }
+            return bccomp($abs, $max) <= 0;
+        }
+
+        $maxLen = strlen($max);
+        $absLen = strlen($abs);
+        if ($absLen < $maxLen) {
+            return true;
+        }
+        if ($absLen > $maxLen + ($neg ? 1 : 0)) {
+            return false;
+        }
+
+        if ($neg) {
+            $limit = self::stringAddOne($max);
+            if (strlen($abs) < strlen($limit)) {
+                return true;
+            }
+            if (strlen($abs) > strlen($limit)) {
+                return false;
+            }
+            return strcmp($abs, $limit) <= 0;
+        }
+
+        if ($absLen > $maxLen) {
+            return false;
+        }
+        return strcmp($abs, $max) <= 0;
+    }
+
+    /**
+     * Add one to a non-negative decimal integer string. Returns result string.
+     * Simple implementation avoids bcmath/gmp dependency.
+     *
+     * @param string $s
+     * @return string
+     */
+    private static function stringAddOne(string $s): string
+    {
+        $i = strlen($s) - 1;
+        $carry = 1;
+        $res = '';
+        while ($i >= 0) {
+            $digit = ord($s[$i]) - 48;
+            $sum = $digit + $carry;
+            $carry = intdiv($sum, 10);
+            $digit = $sum % 10;
+            $res = chr(48 + $digit) . $res;
+            $i--;
+        }
+        if ($carry) {
+            $res = '1' . $res;
+        }
+        return ltrim($res, '0') === '' ? '0' : ltrim($res, '0');
+    }
+
+    /**
+     * Merge all cache namespaces into one flat key => value map (later namespace overwrites).
+     *
+     * @return array<mixed>
+     */
+    private static function flattenCache(): array
+    {
+        $flat = [];
+        foreach (self::$cache as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+            foreach ($entry as $k => $v) {
+                $flat[$k] = $v;
+            }
+        }
+        return $flat;
     }
 
     /**
@@ -574,11 +746,20 @@ class TinyEnv
     public static function env(?string $key = null, $default = null)
     {
         if ($key === null) {
-            return $_ENV ?: self::$cache;
+            if (!empty($_ENV)) {
+                return $_ENV;
+            }
+            return self::flattenCache();
         }
 
-        if (array_key_exists($key, self::$cache)) {
+        if (array_key_exists($key, self::$cache) && !is_array(self::$cache[$key])) {
             return self::parseValue(self::$cache[$key]);
+        }
+
+        foreach (self::$cache as $ns => $map) {
+            if (is_array($map) && array_key_exists($key, $map)) {
+                return self::parseValue($map[$key]);
+            }
         }
 
         if (array_key_exists($key, $_ENV)) {
@@ -640,18 +821,16 @@ class TinyEnv
     }
 
     /**
-     * Clear the internal cache of env values and file lines.
-     * 
-     * @param string|null $key Optional key to clear specific cache entry.
+     * Clear the internal cache of env values.
+     *
+     * @param string|null $key Optional key to clear (namespace or key set via setCache/env default).
      */
     public static function clearCache(?string $key = null): void
     {
         if ($key !== null) {
             unset(self::$cache[$key]);
-            unset(self::$fileLinesCache[$key]);
             return;
         }
         self::$cache = [];
-        self::$fileLinesCache = [];
     }
 }

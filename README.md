@@ -6,7 +6,7 @@ Fast, Safe, Simple — designed for small to medium projects.
 
 ### Installation
 ```bash
-composer require datahihi1/tiny-env:^1.0.15
+composer require datahihi1/tiny-env:^1.0.16
 ```
 
 ### Quick Start
@@ -31,16 +31,15 @@ DB_PORT=3306
 ### Features
 #### 1. load() – Standard load
 ```php
-$env->load();                   // Load all
-$env->load(['DB_HOST']);        // Load specific keys
-$env->load(forceReload: true);  // Overwrite existing values
-$env->load(noFile:true);        // Load but skip checking .env file existence
+$env->load();                           // Load all
+$env->load(specificKeys: ['DB_HOST']);  // Load specific keys
+$env->load(forceReload: true);          // Overwrite existing values
+$env->load(noFile:true);                // Load but skip checking .env file existence
 ```
 
 #### 2. Fast load
 ```php
-$env = new TinyEnv(__DIR__, true);          // Load immediately
-$env = new TinyEnv(__DIR__, true, true);    // Load immediately and populate $_SERVER
+$env = new TinyEnv(__DIR__, fastLoad: true); // Fast load with one call, only if .env exists and populate superglobals/serverglobals enabled
 # $env->load();                             // No need to call load() again
 ```
 
