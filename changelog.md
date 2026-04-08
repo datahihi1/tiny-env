@@ -49,3 +49,7 @@ $tinyenv = new \Datahihi1\TinyEnv\TinyEnv(__DIR__ . '/path/to/.env', true);
 ### Deprecated
 - Deprecated lazy() method. It does not seem to have a practical use case.
 - Deprecated safeLoad() method. Use load(noFile: true) instead. I want to optimize and simplify the codebase.
+
+# 08-04-2026
+### Added
+- Added allowWrapperSchemes() method to opt-in allowing specific stream wrapper schemes (e.g. `phar`) in env values.

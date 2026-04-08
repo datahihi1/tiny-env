@@ -51,6 +51,18 @@ $env = new TinyEnv(__DIR__, true); // Load immediately and populate $_SERVER|$_E
 $env->envfiles(['.env', '.env.local', '.env.production']); // Load in order, later files override earlier ones, not work with fastLoad
 ```
 
+#### Allow specific stream wrappers (advanced)
+
+By default, TinyEnv rejects some values that look like dangerous PHP stream wrappers (e.g. `phar:`, `php://`, `data:`) to reduce the chance that an env value is later used unsafely by your app.
+
+If you *intentionally* need to use a wrapper such as `phar://...`, you can opt-in with an allowlist:
+
+```php
+$env = new TinyEnv(__DIR__);
+$env->allowWrapperSchemes(['phar']); // opt-in to allow phar://... values
+$env->load();
+```
+
 #### Populate Superglobals
 ```php
 $env = new TinyEnv(__DIR__); // By default, superglobals are NOT populated to avoid unintended side effects. You can enable it explicitly:
