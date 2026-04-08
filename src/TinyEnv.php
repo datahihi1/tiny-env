@@ -71,6 +71,14 @@ class TinyEnv
     protected $populateServerglobals = false;
 
     /**
+     * Allowlist of stream wrapper schemes that are otherwise considered dangerous
+     * (e.g. "phar"). Empty by default for safety.
+     *
+     * @var array<int, string>
+     */
+    protected $allowedWrapperSchemes = [];
+
+    /**
      * Maximum allowed recursive substitution depth to avoid DoS via long/cyclic chains.
      */
     private const MAX_SUBSTITUTION_DEPTH = 10;
@@ -144,6 +152,33 @@ class TinyEnv
         }
         array_unshift($files, '.env');
         $this->envFiles = array_values($files);
+        return $this;
+    }
+
+    /**
+     * Allow specific stream wrapper schemes inside env values (e.g. "phar").
+     *
+     * This is opt-in because allowing wrappers can become dangerous if your app later
+     * passes env values into file/stream APIs without validation.
+     *
+     * @param  array<int, string> $schemes
+     * @return self
+     */
+    public function allowWrapperSchemes(array $schemes): self
+    {
+        $out = [];
+        foreach ($schemes as $s) {
+            if (!is_scalar($s)) {
+                continue;
+            }
+            $s = strtolower(trim((string) $s));
+            $s = rtrim($s, ':/');
+            if ($s === '') {
+                continue;
+            }
+            $out[] = $s;
+        }
+        $this->allowedWrapperSchemes = array_values(array_unique($out));
         return $this;
     }
 
@@ -349,7 +384,7 @@ class TinyEnv
             }
 
             $out = self::stringifyEnvValue($resolved);
-            if (self::isDangerous($out)) {
+            if ($this->isDangerous($out)) {
                 throw new Exception("TinyEnv detected dangerous environment value: {$out}");
             }
             array_pop($visited);
@@ -358,7 +393,7 @@ class TinyEnv
 
         $value = preg_replace_callback('/\$\{([A-Z0-9_]+)(:?[-?])?([^}]*)\}/i', $replacer, $value);
 
-        if (is_string($value) && self::isDangerous($value)) {
+        if (is_string($value) && $this->isDangerous($value)) {
             throw new Exception("TinyEnv rejected dangerous env value");
         }
 
@@ -390,7 +425,7 @@ class TinyEnv
      * @param string $value
      * @return bool
      */
-    private static function isDangerous(string $value): bool
+    private function isDangerous(string $value): bool
     {
         if ($value === '') {
             return false;
@@ -400,6 +435,19 @@ class TinyEnv
         $cleaned = preg_replace('/[\s\x00]/', '', strtolower($value));
         $cleanedDecoded = preg_replace('/[\s\x00]/', '', strtolower($decoded));
         $cleanedDoubleDecoded = preg_replace('/[\s\x00]/', '', strtolower($doubleDecoded));
+
+        if (!empty($this->allowedWrapperSchemes)) {
+            foreach ($this->allowedWrapperSchemes as $scheme) {
+                $prefix = $scheme . ':';
+                if (
+                    strpos((string) $cleaned, $prefix) === 0 ||
+                    strpos((string) $cleanedDecoded, $prefix) === 0 ||
+                    strpos((string) $cleanedDoubleDecoded, $prefix) === 0
+                ) {
+                    return false;
+                }
+            }
+        }
 
         $patterns = [
             '/php:\/\//',

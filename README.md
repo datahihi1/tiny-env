@@ -5,11 +5,13 @@ A lightweight .env loader for PHP projects.
 Fast, Safe, Simple — designed for small to medium projects.
 
 ### Installation
+
 ```bash
-composer require datahihi1/tiny-env:^1.0.16
+composer require datahihi1/tiny-env:1.0.17
 ```
 
 ### Quick Start
+
 ```php
 require 'vendor/autoload.php';
 
@@ -33,30 +35,37 @@ DB_PORT=3306
 ```php
 $env->load();                           // Load all
 $env->load(specificKeys: ['DB_HOST']);  // Load specific keys
-$env->load(forceReload: true);          // Overwrite existing values
-$env->load(noFile:true);                // Load but skip checking .env file existence
+$env->load([], forceReload: true);      // Force reload (overwrite existing values)
+$env->load([], noFile: true);           // Load without requiring .env file to exist
 ```
 
 #### 2. Fast load
 ```php
-$env = new TinyEnv(__DIR__, fastLoad: true); // Fast load with one call, only if .env exists and populate superglobals/serverglobals enabled
-# $env->load();                             // No need to call load() again
+$env = new TinyEnv(__DIR__, true); // Load immediately and populate $_SERVER|$_ENV but only .env and not recommended for production
 ```
 
 #### 3. Multiple .env files
 ```php
-$env = new TinyEnv(__DIR__.'/to/path/env');
-$env->envfiles(['.env', '.env.local', '.env.production']);
-$env->load(); // Load from multiple files but .env is always first
+$env->envfiles(['.env', '.env.local', '.env.production']); // Load in order, later files override earlier ones, not work with fastLoad
 ```
 
-TinyEnv always loads `.env` first, then any additional files in the order specified.
+#### Allow specific stream wrappers (advanced)
+
+By default, TinyEnv rejects some values that look like dangerous PHP stream wrappers (e.g. `phar:`, `php://`, `data:`) to reduce the chance that an env value is later used unsafely by your app.
+
+If you *intentionally* need to use a wrapper such as `phar://...`, you can opt-in with an allowlist:
+
+```php
+$env = new TinyEnv(__DIR__);
+$env->allowWrapperSchemes(['phar']); // opt-in to allow phar://... values
+$env->load();
+```
 
 #### Populate Superglobals
 ```php
-$env = new TinyEnv(__DIR__);
-$env->populateSuperglobals();   // Enable superglobals population
-$env->populateServerglobals();  // Enable $_SERVER population
+$env = new TinyEnv(__DIR__); // By default, superglobals are NOT populated to avoid unintended side effects. You can enable it explicitly:
+$env->populateSuperglobals(); // Enable superglobals population
+$env->populateServerglobals(); // Enable server globals population
 $env->load();
 ```
 
@@ -67,6 +76,7 @@ Or use `fastLoad` which will always populate superglobals - **But not recommende
 echo env('NAME');                // Get value
 echo env('NOT_FOUND', 'backup'); // With default
 print_r(env());                  // Get all (in .env file)
+print_r(s_env());                // Get all converted to string
 print_r(sysenv());               // Get all system variables
 ```
 
