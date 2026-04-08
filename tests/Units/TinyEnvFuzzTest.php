@@ -133,6 +133,21 @@ class TinyEnvFuzzTest extends \PHPUnit\Framework\TestCase
         $this->assertTrue($thrown, 'Dangerous value should cause an exception');
     }
 
+    public function testAllowWrapperSchemes_allowsPhar()
+    {
+        $lines = [
+            'SAFE=ok',
+            'PHAR_PATH=phar://my-app.phar/assets/config.json',
+        ];
+        $this->writeEnv($lines);
+
+        $env = new TinyEnv($this->tmpDir);
+        $env->allowWrapperSchemes(['phar']);
+        $env->load();
+
+        $this->assertSame('phar://my-app.phar/assets/config.json', TinyEnv::env('PHAR_PATH'));
+    }
+
     public function testFuzzMax_substitutionDepthExceeded()
     {
         // build a long chain longer than MAX_SUBSTITUTION_DEPTH (10)
