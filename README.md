@@ -7,7 +7,7 @@ Fast, Safe, Simple — designed for small to medium projects.
 ### Installation
 
 ```bash
-composer require datahihi1/tiny-env:1.0.17
+composer require datahihi1/tiny-env:1.1.0
 ```
 
 ### Quick Start
@@ -46,7 +46,8 @@ $env = new TinyEnv(__DIR__, true); // Load immediately and populate $_SERVER|$_E
 
 #### 3. Multiple .env files
 ```php
-$env->envfiles(['.env', '.env.local', '.env.production']); // Load in order, later files override earlier ones, not work with fastLoad
+$env->envfiles(['.env', '.env.production', '.env.local']); // Load in order, pre-declaration file has the highest priority by default (.env > .env.production > .env.local)
+$env->envfiles(['.env.production', '.env.local'], prioritizeEnv: true); // Prioritize .env file by loading it first, allows overwriting other files
 ```
 
 #### Allow specific stream wrappers (advanced)
@@ -76,7 +77,6 @@ Or use `fastLoad` which will always populate superglobals - **But not recommende
 echo env('NAME');                // Get value
 echo env('NOT_FOUND', 'backup'); // With default
 print_r(env());                  // Get all (in .env file)
-print_r(s_env());                // Get all converted to string
 print_r(sysenv());               // Get all system variables
 ```
 
@@ -105,11 +105,11 @@ REQUIRED=${MISSING?Missing variable MISSING}
 
 Result:
 ```bash
-DB_URL = "localhost:3306"
+DB_URL="localhost:3306"
 
-USER = "guest" (because USER_NAME is empty)
+USER="guest" (because USER_NAME is empty)
 
-ALT_USER = "" (because USER_NAME exists but empty)
+ALT_USER="" (because USER_NAME exists but empty)
 
 REQUIRED → throws Exception
 ```

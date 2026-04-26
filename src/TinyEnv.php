@@ -16,6 +16,10 @@ use function is_scalar;
 use function is_string;
 use function ord;
 use function strlen;
+use function str_contains;
+use function str_starts_with;
+use function str_ends_with;
+use function strtolower;
 
 /**
  * TinyEnv is a simple environment variable loader for PHP applications
@@ -27,13 +31,15 @@ class TinyEnv
      *
      * @var bool
      */
-    protected $loaded = false;
+    protected bool $loaded = false;
+
     /**
      * Root directories to search for .env files.
      *
      * @var string[]
      */
-    protected $rootDirs;
+    protected array $rootDirs;
+
     /**
      * Cached env values, namespaced by source file to reduce cross-instance poisoning.
      * Structure: [ filePath => [ key => value, ... ], '__global__' => [ ... ] ]
@@ -41,34 +47,34 @@ class TinyEnv
      *
      * @var array<string, array<string, mixed>|mixed>
      */
-    protected static $cache = [];
+    protected static array $cache = [];
+
     /**
      * List of .env files to load, in order of priority. `.env` is always loaded first and cannot be removed.
      *
      * @var string[]
      */
-    protected $envFiles = ['.env'];
+    protected array $envFiles = ['.env'];
 
     /**
      * Current env file being processed (used to namespace writes to the cache).
      *
      * @var string
      */
-    protected $currentEnvFile = '__global__';
+    protected string $currentEnvFile = '__global__';
 
     /**
      * Whether to write parsed env values into PHP superglobals (e.g. $_ENV). Default is false for safety.
      *
      * @var bool
      */
-    protected $populateSuperglobals = false;
+    protected bool $populateSuperglobals = false;
 
     /**
      * Whether to write parsed env values into $_SERVER superglobal. Default is false for safety.
-     * 
      * @var bool
      */
-    protected $populateServerglobals = false;
+    protected bool $populateServerglobals = false;
 
     /**
      * Allowlist of stream wrapper schemes that are otherwise considered dangerous
@@ -76,7 +82,7 @@ class TinyEnv
      *
      * @var array<int, string>
      */
-    protected $allowedWrapperSchemes = [];
+    protected array $allowedWrapperSchemes = [];
 
     /**
      * Maximum allowed recursive substitution depth to avoid DoS via long/cyclic chains.
@@ -96,11 +102,10 @@ class TinyEnv
      *
      * @param string|string[] $rootDirs The root directory to load files from.
      * @param bool            $fastLoad Whether to load all the environment variables immediately.
-     *      **Note:** Only `.env` and enable populateSuperglobals|populateServerglobals - not recommended for production.
-     * 
+     * **Note:** Only `.env` and enable populateSuperglobals|populateServerglobals - not recommended for production.
      * @throws Exception If the .env file cannot be read.
      */
-    public function __construct($rootDirs, bool $fastLoad = false)
+    public function __construct(array|string $rootDirs, bool $fastLoad = false)
     {
         $this->rootDirs = (array) $rootDirs;
         if ($fastLoad) {
@@ -138,19 +143,22 @@ class TinyEnv
 
     /**
      * Specify which env files to load (in order of priority, later files override earlier ones).
-     * 
-     * `.env` is always loaded first and cannot be removed.
      *
      * @param  array<int, string> $files List of .env files to load, e.g., ['.env.local', '.env.production']
+     * @param  bool                $prioritizeEnv Whether to prioritize .env file by ensuring it's loaded first. Default is not.
      * @return self
      */
-    public function envfiles(array $files): self
+    public function envfiles(array $files, bool $prioritizeEnv = false): self
     {
         $files = array_values(array_unique($files));
-        if (($i = array_search('.env', $files, true)) !== false) {
-            unset($files[$i]);
+
+        if ($prioritizeEnv) {
+            if (($i = array_search('.env', $files, true)) !== false) {
+                unset($files[$i]);
+            }
+            array_unshift($files, '.env');
         }
-        array_unshift($files, '.env');
+
         $this->envFiles = array_values($files);
         return $this;
     }
@@ -161,7 +169,7 @@ class TinyEnv
      * This is opt-in because allowing wrappers can become dangerous if your app later
      * passes env values into file/stream APIs without validation.
      *
-     * @param  array<int, string> $schemes
+     * @param  array<int|string, mixed> $schemes
      * @return self
      */
     public function allowWrapperSchemes(array $schemes): self
@@ -194,7 +202,7 @@ class TinyEnv
      * @param  bool                      $forceReload  Whether to force reload even if already loaded.
      * @throws Exception If the .env file cannot be read.
      */
-    public function load($specificKeys = [], bool $forceReload = false, bool $noFile = false): self
+    public function load(array|string $specificKeys = [], bool $forceReload = false, bool $noFile = false): self
     {
         return $this->loadInternal($specificKeys, $forceReload, $noFile);
     }
@@ -206,7 +214,7 @@ class TinyEnv
      * @param  bool                      $forceReload
      * @return self
      */
-    protected function loadInternal($specificKeys = [], bool $forceReload = false, bool $noFile = false): self
+    protected function loadInternal(array|string $specificKeys = [], bool $forceReload = false, bool $noFile = false): self
     {
         if ($this->loaded && !$forceReload) {
             return $this;
@@ -223,7 +231,7 @@ class TinyEnv
                 continue;
             }
             foreach (array_reverse($this->envFiles) as $fileName) {
-                if (strpos($fileName, '..') !== false || strpos($fileName, '/') !== false || strpos($fileName, '\\') !== false) {
+                if (str_contains($fileName, '..') || str_contains($fileName, '/') || str_contains($fileName, '\\')) {
                     continue;
                 }
                 if (!preg_match('/^\.env(\.\w+)?$/', $fileName)) {
@@ -239,8 +247,8 @@ class TinyEnv
                 $normRealFile = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $realFile);
 
                 $startsWith = DIRECTORY_SEPARATOR === '\\'
-                    ? strcasecmp(substr($normRealFile, 0, strlen($normRealDir)), $normRealDir) === 0
-                    : substr($normRealFile, 0, strlen($normRealDir)) === $normRealDir;
+                    ? str_starts_with(strtolower($normRealFile), strtolower($normRealDir))
+                    : str_starts_with($normRealFile, $normRealDir);
 
 
                 if (!$startsWith) {
@@ -269,9 +277,9 @@ class TinyEnv
      * Optionally filter by allowed keys.
      *
      * @param array<int, string>|null    $allowedKeys Optional array of allowed keys to filter.
-     *                                             If null, all keys are allowed.
+     * If null, all keys are allowed.
      * @param array<string, string>|null $rawMap      Map of raw key=>value from the .env file.
-     *                                             Used for cross-line substitution.
+     * Used for cross-line substitution.
      */
     private function parseAndSetEnvLine(string $line, ?array $allowedKeys = null, ?array $rawMap = null): void
     {
@@ -309,7 +317,7 @@ class TinyEnv
         $value = trim($value, " \t\n\r\0\x0B\"'");
 
         $forceString = false;
-        if (strlen($value) >= 2 && $value[0] === '/' && substr($value, -1) === '/') {
+        if (strlen($value) >= 2 && str_starts_with($value, '/') && str_ends_with($value, '/')) {
             $value = substr($value, 1, -1);
             $forceString = true;
         }
@@ -317,19 +325,17 @@ class TinyEnv
         $visited = [$key];
         $allowedOps = ['', ':-', '-', '?', ':?'];
 
-        $replacer = function (array $m) {
-            return '';
-        };
+        $replacer = fn(array $m) => '';
         $replacer = function (array $m) use (&$visited, $allowedOps, $rawMap, &$replacer): string {
-            $var = isset($m[1]) && is_scalar($m[1]) ? (string) $m[1] : '';
-            $op  = isset($m[2]) && is_scalar($m[2]) ? (string) $m[2] : '';
-            $arg = isset($m[3]) && is_scalar($m[3]) ? (string) $m[3] : '';
+            $var = is_string($m[1] ?? null) ? $m[1] : '';
+            $op  = is_string($m[2] ?? null) ? $m[2] : '';
+            $arg = is_string($m[3] ?? null) ? $m[3] : '';
 
             if ($arg !== '' && !preg_match('/^[A-Z0-9_\s-]*$/i', $arg)) {
                 throw new Exception("TinyEnv detected invalid characters in substitution argument");
             }
 
-            $msgOp = isset($m[0]) && is_scalar($m[0]) ? (string) $m[0] : '';
+            $msgOp = isset($m[0]) && is_string($m[0]) ? $m[0] : '';
             if (!in_array($op, $allowedOps, true)) {
                 throw new Exception("TinyEnv detected invalid substitution operator");
             }
@@ -346,11 +352,12 @@ class TinyEnv
 
             $env = $this->getCachedValue($var);
             if ($env === null && array_key_exists($var, $_ENV)) {
-                $env = (string) $_ENV[$var];
+                $val = $_ENV[$var];
+                $env = is_scalar($val) ? (string) $val : '';
             }
             if ($env === null && is_array($rawMap) && array_key_exists($var, $rawMap)) {
                 $rawVal = $rawMap[$var];
-                $env = strpos((string)$rawVal, '${') !== false
+                $env = str_contains((string)$rawVal, '${')
                     ? preg_replace_callback(
                         '/\${?([A-Z0-9_]+)(:?[-?])?([^}]*)}?/i',
                         $replacer,
@@ -359,29 +366,17 @@ class TinyEnv
                     : (string) $rawVal;
             }
 
-            switch ($op) {
-                case ':-':
-                    $resolved = ($env === null || $env === '') ? $arg : $env;
-                    break;
-                case '-':
-                    $resolved = ($env === null) ? $arg : $env;
-                    break;
-                case '?':
-                    if ($env === null || $env === '') {
-                        throw new Exception("TinyEnv detected missing required variable: {$var}");
-                    }
-                    $resolved = $env;
-                    break;
-                case ':?':
-                    if ($env === null) {
-                        $msg = $arg !== '' ? $arg : "TinyEnv detected missing required variable: {$var}";
-                        throw new Exception($msg);
-                    }
-                    $resolved = $env;
-                    break;
-                default:
-                    $resolved = ($env !== null) ? $env : '';
-            }
+            $resolved = match ($op) {
+                ':-' => ($env === null || $env === '') ? $arg : $env,
+                '-'  => ($env === null) ? $arg : $env,
+                '?'  => ($env === null || $env === '')
+                    ? throw new Exception("TinyEnv detected missing required variable: {$var}")
+                    : $env,
+                ':?' => ($env === null)
+                    ? throw ($arg !== '' ? new Exception($arg) : new Exception("TinyEnv detected missing required variable: {$var}"))
+                    : $env,
+                default => ($env !== null) ? $env : '',
+            };
 
             $out = self::stringifyEnvValue($resolved);
             if ($this->isDangerous($out)) {
@@ -440,9 +435,9 @@ class TinyEnv
             foreach ($this->allowedWrapperSchemes as $scheme) {
                 $prefix = $scheme . ':';
                 if (
-                    strpos((string) $cleaned, $prefix) === 0 ||
-                    strpos((string) $cleanedDecoded, $prefix) === 0 ||
-                    strpos((string) $cleanedDoubleDecoded, $prefix) === 0
+                    str_starts_with((string) $cleaned, $prefix) ||
+                    str_starts_with((string) $cleanedDecoded, $prefix) ||
+                    str_starts_with((string) $cleanedDoubleDecoded, $prefix)
                 ) {
                     return false;
                 }
@@ -491,18 +486,21 @@ class TinyEnv
         $ns = $this->currentEnvFile;
         $nsEntry = self::$cache[$ns] ?? null;
         if (is_array($nsEntry) && array_key_exists($var, $nsEntry)) {
-            return (string) $nsEntry[$var];
+            $val = $nsEntry[$var];
+            return is_scalar($val) ? (string) $val : '';
         }
         $globalEntry = self::$cache['__global__'] ?? null;
         if (is_array($globalEntry) && array_key_exists($var, $globalEntry)) {
-            return (string) $globalEntry[$var];
+            $val = $globalEntry[$var];
+            return is_scalar($val) ? (string) $val : '';
         }
         foreach (self::$cache as $file => $map) {
             if ($file === $ns || $file === '__global__') {
                 continue;
             }
             if (is_array($map) && array_key_exists($var, $map)) {
-                return (string) $map[$var];
+                $val = $map[$var];
+                return is_scalar($val) ? (string) $val : '';
             }
         }
         return null;
@@ -629,7 +627,7 @@ class TinyEnv
                 continue;
             }
             $k = trim($parts[0]);
-            $v = isset($parts[1]) ? ltrim($parts[1]) : '';
+            $v = ltrim($parts[1]);
             $rawMap[$k] = $v;
         }
 
@@ -648,7 +646,7 @@ class TinyEnv
      * @param  mixed $value
      * @return string
      */
-    private static function stringifyEnvValue($value): string
+    private static function stringifyEnvValue(mixed $value): string
     {
         if (is_string($value) || is_numeric($value)) {
             return (string) $value;
@@ -662,7 +660,7 @@ class TinyEnv
      * @param  mixed $value
      * @return mixed
      */
-    private static function parseValue($value)
+    private static function parseValue(mixed $value): mixed
     {
         if (!is_string($value)) {
             return $value;
@@ -700,11 +698,17 @@ class TinyEnv
     private static function intFits(string $value): bool
     {
         $neg = ($value[0] === '-');
+
+        /** @var numeric-string $abs */
         $abs = $neg ? substr($value, 1) : $value;
+
+        /** @var numeric-string $max */
         $max = (string) PHP_INT_MAX;
 
         if (function_exists('bccomp') && function_exists('bcadd')) {
             if ($neg) {
+
+                /** @var numeric-string $limit */
                 $limit = bcadd($max, '1');
                 return bccomp($abs, $limit) <= 0;
             }
@@ -791,7 +795,7 @@ class TinyEnv
      * @param  mixed       $default The default value if the key does not exist.
      * @return mixed The value of the environment variable or the default value($default).
      */
-    public static function env(?string $key = null, $default = null)
+    public static function env(?string $key = null, mixed $default = null): mixed
     {
         if ($key === null) {
             if (!empty($_ENV)) {
@@ -863,7 +867,7 @@ class TinyEnv
      * @param string $key   The key to set in the cache.
      * @param mixed  $value The value to set in the cache.
      */
-    public static function setCache(string $key, $value): void
+    public static function setCache(string $key, mixed $value): void
     {
         self::$cache[$key] = $value;
     }

@@ -18,9 +18,10 @@
         }
     ],
     "require": {
-      "php": ">=7.1"
+      "php": ">=8.0"
     },
     "suggest": {
+        "ext-bcmath": "Required for handling large numbers in .env values",
         "datahihi1/tiny-env-validator": "Validation helpers for tiny-env: rules and helpers to validate .env values",
         "datahihi1/tiny-env-encryptor": "Encryption helpers for tiny-env: encrypt and decrypt .env values"
     }
