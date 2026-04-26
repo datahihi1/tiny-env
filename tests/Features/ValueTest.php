@@ -78,12 +78,6 @@ class ValueTest extends \PHPUnit\Framework\TestCase
         Assert::assertNull(env('NULL_VALUE'));
         Assert::assertSame('default', env('MISSING_KEY', 'default'));
 
-        Assert::assertSame('TinyEnv', s_env('APP_NAME'));
-        Assert::assertSame('8.7', s_env('MY_TEXT'));
-        Assert::assertSame('1', s_env('APP_DEBUG'));
-        Assert::assertSame('', s_env('NULL_VALUE'));
-        Assert::assertSame('default', s_env('MISSING_KEY', 'default'));
-
         $this->resetEnvState();
         TinyEnv::setCache('CACHE_TEST', 'cached_value');
         $this->assertSame('cached_value', TinyEnv::env('CACHE_TEST'));

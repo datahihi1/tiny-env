@@ -2,4 +2,4 @@ parameters:
     level: max
     paths:
         - src
-    phpVersion: 70100
+    phpVersion: 80000

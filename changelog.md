@@ -53,3 +53,17 @@ $tinyenv = new \Datahihi1\TinyEnv\TinyEnv(__DIR__ . '/path/to/.env', true);
 # 08-04-2026
 ### Added
 - Added allowWrapperSchemes() method to opt-in allowing specific stream wrapper schemes (e.g. `phar`) in env values.
+
+# 26-04-2026
+### Changed
+
+- Now, TinyEnv version 1.1.0 or higher requires PHP 8.0 or higher.
+- Changed the priority order of .env files loaded by envfiles() method. To prioritize the .env file, set $prioritizeEnv to true and it will be loaded first and have the highest priority, allows overwriting other files . By default, $prioritizeEnv is false, and files are loaded in the order they are specified, the pre-declaration file will have the highest priority.
+
+Example:
+
+```php
+$env->envfiles(['.env.production','.env', '.env.local']); // .env.production will override .env.local, and .env will override both
+$env->envfiles(['.env.production','.env', '.env.local'], prioritizeEnv: true); // .env will be highest priority and override both .env.local and .env.production, while .env.production will override .env.local
+$env->envfiles(['.env.production', '.env.local'], prioritizeEnv: true); // Although .env has been removed in the list, but .env will still be prioritized if it exists
+```
