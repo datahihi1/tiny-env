@@ -46,7 +46,8 @@ $env = new TinyEnv(__DIR__, true); // Load immediately and populate $_SERVER|$_E
 
 #### 3. Multiple .env files
 ```php
-
+$env->envfiles(['.env', '.env.production', '.env.local']); // Load in order, pre-declaration file has the highest priority by default (.env > .env.production > .env.local)
+$env->envfiles(['.env.production', '.env.local'], prioritizeEnv: true); // Prioritize .env file by loading it first, allows overwriting other files
 ```
 
 #### Allow specific stream wrappers (advanced)
