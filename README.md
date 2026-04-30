@@ -7,7 +7,7 @@ Fast, Safe, Simple — designed for small to medium projects.
 ### Installation
 
 ```bash
-composer require datahihi1/tiny-env:1.0.17
+composer require datahihi1/tiny-env:1.0.18
 ```
 
 ### Quick Start
@@ -46,7 +46,7 @@ $env = new TinyEnv(__DIR__, true); // Load immediately and populate $_SERVER|$_E
 
 #### 3. Multiple .env files
 ```php
-$env->envfiles(['.env', '.env.local', '.env.production']); // Load in order, later files override earlier ones, not work with fastLoad
+
 ```
 
 #### Allow specific stream wrappers (advanced)
@@ -76,7 +76,6 @@ Or use `fastLoad` which will always populate superglobals - **But not recommende
 echo env('NAME');                // Get value
 echo env('NOT_FOUND', 'backup'); // With default
 print_r(env());                  // Get all (in .env file)
-print_r(s_env());                // Get all converted to string
 print_r(sysenv());               // Get all system variables
 ```
 

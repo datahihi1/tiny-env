@@ -144,13 +144,17 @@ class TinyEnv
      * @param  array<int, string> $files List of .env files to load, e.g., ['.env.local', '.env.production']
      * @return self
      */
-    public function envfiles(array $files): self
+    public function envfiles(array $files, bool $prioritizeEnv = false): self
     {
         $files = array_values(array_unique($files));
-        if (($i = array_search('.env', $files, true)) !== false) {
-            unset($files[$i]);
+
+        if ($prioritizeEnv) {
+            if (($i = array_search('.env', $files, true)) !== false) {
+                unset($files[$i]);
+            }
+            array_unshift($files, '.env');
         }
-        array_unshift($files, '.env');
+
         $this->envFiles = array_values($files);
         return $this;
     }
