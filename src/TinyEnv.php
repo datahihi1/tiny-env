@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Datahihi1\TinyEnv;
 
 use Exception;
@@ -142,10 +144,10 @@ class TinyEnv
     }
 
     /**
-     * Specify which env files to load (in order of priority, later files override earlier ones).
+     * Specify which env files to load (in order of priority, earlier files override later ones).
      *
-     * @param  array<int, string> $files List of .env files to load, e.g., ['.env.local', '.env.production']
-     * @param  bool                $prioritizeEnv Whether to prioritize .env file by ensuring it's loaded first. Default is not.
+     * @param  array<int, string> $files List of .env files to load, e.g., ['.env', '.env.production', '.env.local']
+     * @param  bool               $prioritizeEnv Whether to prioritize `.env` file by ensuring it's loaded first. Default is not.
      * @return self
      */
     public function envfiles(array $files, bool $prioritizeEnv = false): self
@@ -314,10 +316,20 @@ class TinyEnv
             return;
         }
 
-        $value = trim($value, " \t\n\r\0\x0B\"'");
+        $isQuoted = false;
+        if (strlen($value) >= 2) {
+            $first = $value[0];
+            $last = $value[strlen($value) - 1];
+            if (($first === '"' && $last === '"') || ($first === "'" && $last === "'")) {
+                $isQuoted = true;
+                $value = substr($value, 1, -1);
+            }
+        }
+        
+        $value = trim($value, " \t\n\r\0\x0B");
 
-        $forceString = false;
-        if (strlen($value) >= 2 && str_starts_with($value, '/') && str_ends_with($value, '/')) {
+        $forceString = $isQuoted;
+        if (!$forceString && strlen($value) >= 2 && str_starts_with($value, '/') && str_ends_with($value, '/')) {
             $value = substr($value, 1, -1);
             $forceString = true;
         }
@@ -494,7 +506,8 @@ class TinyEnv
             $val = $globalEntry[$var];
             return is_scalar($val) ? (string) $val : '';
         }
-        foreach (self::$cache as $file => $map) {
+
+        foreach (array_reverse(self::$cache, true) as $file => $map) {
             if ($file === $ns || $file === '__global__') {
                 continue;
             }
@@ -808,7 +821,7 @@ class TinyEnv
             return self::parseValue(self::$cache[$key]);
         }
 
-        foreach (self::$cache as $ns => $map) {
+        foreach (array_reverse(self::$cache, true) as $ns => $map) {
             if (is_array($map) && array_key_exists($key, $map)) {
                 return self::parseValue($map[$key]);
             }

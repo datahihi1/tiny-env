@@ -7,7 +7,7 @@ Only the latest major version of TinyEnv is actively supported with security upd
 | Version | Supported            |
 | ------- | ---------------------|
 | 1.1     | :white_check_mark:   |
-| 1.0     | :warning: (fix only) |
+| 1.0     | :x:                  |
 
 ## Reporting a Vulnerability
 

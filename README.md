@@ -7,7 +7,7 @@ Fast, Safe, Simple — designed for small to medium projects.
 ### Installation
 
 ```bash
-composer require datahihi1/tiny-env:1.1.0
+composer require datahihi1/tiny-env:1.1.1
 ```
 
 ### Quick Start
