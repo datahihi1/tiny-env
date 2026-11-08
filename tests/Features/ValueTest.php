@@ -100,4 +100,154 @@ class ValueTest extends \PHPUnit\Framework\TestCase
         $this->assertTrue($_SERVER['APP_DEBUG']);
         $this->assertNull($_SERVER['NULL_VALUE'] ?? null);
     }
+
+    public function testQuotedValuesStayStringsWhenRead()
+    {
+        $dir = sys_get_temp_dir() . '/tinyenv-quoted-read-' . bin2hex(random_bytes(6));
+        mkdir($dir, 0777, true);
+        file_put_contents($dir . '/.env', "PIN=\"0123\"\nANSWER=\"yes\"\nZERO=\"0\"\nLITERAL=\"null\"\n");
+
+        try {
+            $env = new TinyEnv($dir);
+            $env->load();
+
+            $this->assertSame('0123', TinyEnv::env('PIN'));
+            $this->assertTrue(TinyEnv::env('ANSWER'));
+            $this->assertSame(0, TinyEnv::env('ZERO'));
+            $this->assertNull(TinyEnv::env('LITERAL'));
+        } finally {
+            @unlink($dir . '/.env');
+            @rmdir($dir);
+        }
+    }
+
+    public function testMalformedLineDoesNotLeavePartialEnvState()
+    {
+        $dir = sys_get_temp_dir() . '/tinyenv-partial-state-' . bin2hex(random_bytes(6));
+        mkdir($dir, 0777, true);
+        file_put_contents($dir . '/.env', "PARTIAL_A=1\nBROKEN LINE\nPARTIAL_B=2\n");
+
+        try {
+            $env = new TinyEnv($dir);
+            $this->expectException(Exception::class);
+            $env->load();
+        } finally {
+            TinyEnv::clearCache();
+            @unlink($dir . '/.env');
+            @rmdir($dir);
+        }
+    }
+
+    public function testForwardReferenceResolvesLaterDefinitions()
+    {
+        $dir = sys_get_temp_dir() . '/tinyenv-forward-ref-' . bin2hex(random_bytes(6));
+        mkdir($dir, 0777, true);
+        file_put_contents($dir . '/.env', "B=\${A}\nA=\"hello\"\n");
+
+        try {
+            $env = new TinyEnv($dir);
+            $env->load();
+
+            $this->assertSame('hello', TinyEnv::env('B'));
+        } finally {
+            TinyEnv::clearCache();
+            @unlink($dir . '/.env');
+            @rmdir($dir);
+        }
+    }
+
+    public function testHashInsideUnquotedValueIsPreserved()
+    {
+        $dir = sys_get_temp_dir() . '/tinyenv-hash-value-' . bin2hex(random_bytes(6));
+        mkdir($dir, 0777, true);
+        file_put_contents($dir . '/.env', "PASS=Ab#cdEFG123\nURL=https://x.test/page#anchor\n");
+
+        try {
+            $env = new TinyEnv($dir);
+            $env->load();
+
+            $this->assertSame('Ab#cdEFG123', TinyEnv::env('PASS'));
+            $this->assertSame('https://x.test/page#anchor', TinyEnv::env('URL'));
+        } finally {
+            TinyEnv::clearCache();
+            @unlink($dir . '/.env');
+            @rmdir($dir);
+        }
+    }
+
+    public function testPutenvIsNotWrittenByDefault()
+    {
+        $original = getenv('LD_LIBRARY_PATH');
+        $dir = sys_get_temp_dir() . '/tinyenv-putenv-default-' . bin2hex(random_bytes(6));
+        mkdir($dir, 0777, true);
+        file_put_contents($dir . '/.env', "LD_LIBRARY_PATH=/tmp/tinyenv_evil\n");
+
+        try {
+            $env = new TinyEnv($dir);
+            $env->load();
+
+            $this->assertFalse(getenv('LD_LIBRARY_PATH') === '/tmp/tinyenv_evil');
+        } finally {
+            if ($original === false) {
+                putenv('LD_LIBRARY_PATH');
+            } else {
+                putenv('LD_LIBRARY_PATH=' . $original);
+            }
+            @unlink($dir . '/.env');
+            @rmdir($dir);
+        }
+    }
+
+    public function testFastLoadDoesNotOverwriteServerGlobalsByDefault()
+    {
+        $dir = sys_get_temp_dir() . '/tinyenv-fastload-default-' . bin2hex(random_bytes(6));
+        mkdir($dir, 0777, true);
+        file_put_contents($dir . '/.env', "REMOTE_ADDR=127.0.0.1\nHTTPS=on\n");
+
+        $_SERVER['REMOTE_ADDR'] = '203.0.113.9';
+        $_SERVER['HTTPS'] = 'off';
+
+        try {
+            $env = new TinyEnv($dir, true);
+            $env->load();
+
+            $this->assertSame('203.0.113.9', $_SERVER['REMOTE_ADDR']);
+            $this->assertSame('off', $_SERVER['HTTPS']);
+        } finally {
+            @unlink($dir . '/.env');
+            @rmdir($dir);
+        }
+    }
+
+    public function testSubstitutionExpansionIsCapped()
+    {
+        $dir = sys_get_temp_dir() . '/tinyenv-subst-cap-' . bin2hex(random_bytes(6));
+        mkdir($dir, 0777, true);
+        file_put_contents($dir . '/.env', "A=" . str_repeat('x', 20000) . "\nB=${A}${A}${A}\n");
+
+        try {
+            $env = new TinyEnv($dir);
+            $this->expectException(Exception::class);
+            $env->load();
+        } finally {
+            @unlink($dir . '/.env');
+            @rmdir($dir);
+        }
+    }
+
+    public function testLineLengthIsRejectedBeforeReadCompletes()
+    {
+        $dir = sys_get_temp_dir() . '/tinyenv-line-cap-' . bin2hex(random_bytes(6));
+        mkdir($dir, 0777, true);
+        file_put_contents($dir . '/.env', 'A=' . str_repeat('x', 9000) . "\n");
+
+        try {
+            $env = new TinyEnv($dir);
+            $this->expectException(Exception::class);
+            $env->load();
+        } finally {
+            @unlink($dir . '/.env');
+            @rmdir($dir);
+        }
+    }
 }

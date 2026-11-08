@@ -67,3 +67,23 @@ $env->envfiles(['.env.production','.env', '.env.local']); // .env.production wil
 $env->envfiles(['.env.production','.env', '.env.local'], prioritizeEnv: true); // .env will be highest priority and override both .env.local and .env.production, while .env.production will override .env.local
 $env->envfiles(['.env.production', '.env.local'], prioritizeEnv: true); // Although .env has been removed in the list, but .env will still be prioritized if it exists
 ```
+
+# 07-11-2026
+### Removed
+- Removed the dangerous environment value detection guard (`isDangerous()`) and the related `allowWrapperSchemes()` path from the core loader.
+- Removed the built-in wrapper allowlist logic and any dangerous-stream rejection checks from env parsing.
+- Simplified the parser to accept env values without blocking wrappers or URI-like values.
+
+# 08-11-2026
+
+### Fixed
+- Fixed malformed `.env` parsing so invalid lines no longer leave stale partial cache state.
+- Corrected forward-reference interpolation so values like `B=${A}` resolve correctly after later declarations.
+- Prevented `#` from being stripped inside unquoted values, preserving literal hash content in env values.
+- Hardened the loader against oversized lines and recursive substitution abuse to reduce DoS risk.
+- Kept process and superglobal mutations explicit opt-in, so `putenv()`, `$_ENV`, and `$_SERVER` are not modified unless requested.
+
+### Changed
+- Normalized cache handling so env values are resolved once instead of being re-parsed on repeated reads.
+- Added regression coverage for malformed lines, comment handling, and forward references.
+- Updated the documentation and default runtime behavior to require explicit population of side effects.

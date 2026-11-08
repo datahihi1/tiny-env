@@ -111,41 +111,39 @@ class TinyEnvFuzzTest extends \PHPUnit\Framework\TestCase
         $this->assertSame('pre42post', TinyEnv::env('E'));
     }
 
-    public function testFuzzHigh_dangerousRejected()
+    public function testDefaultValue_doesNotPoisonLoadedEnv(): void
     {
-        // include one dangerous pattern that should be rejected
-        $lines = [
-            'SAFE=ok',
-            'EVIL=php://filter/convert.base64-encode/resource=php://input',
-            'AFTER=ok2'
-        ];
-        $this->writeEnv($lines);
+        TinyEnv::clearCache();
+        TinyEnv::env('TOKEN', 'default-value');
+
+        $this->writeEnv([
+            'TOKEN=real-secret',
+        ]);
 
         $env = new TinyEnv($this->tmpDir);
-
-        $thrown = false;
-        try {
-            $env->load();
-        } catch (\Exception $e) {
-            $thrown = true;
-            $this->assertStringContainsString('rejected dangerous env value', $e->getMessage());
-        }
-        $this->assertTrue($thrown, 'Dangerous value should cause an exception');
-    }
-
-    public function testAllowWrapperSchemes_allowsPhar()
-    {
-        $lines = [
-            'SAFE=ok',
-            'PHAR_PATH=phar://my-app.phar/assets/config.json',
-        ];
-        $this->writeEnv($lines);
-
-        $env = new TinyEnv($this->tmpDir);
-        $env->allowWrapperSchemes(['phar']);
         $env->load();
 
-        $this->assertSame('phar://my-app.phar/assets/config.json', TinyEnv::env('PHAR_PATH'));
+        $this->assertSame('real-secret', TinyEnv::env('TOKEN'));
+    }
+
+    public function testFilePathDefaultDoesNotOverrideLoadedFileNamespace(): void
+    {
+        TinyEnv::clearCache();
+        $this->writeEnv([
+            'SECRET=abc',
+            'DB_HOST=db.internal',
+        ]);
+
+        $env = new TinyEnv($this->tmpDir);
+        $env->load();
+
+        $realFile = realpath($this->tmpDir . DIRECTORY_SEPARATOR . '.env');
+        $this->assertNotFalse($realFile);
+
+        TinyEnv::env((string) $realFile, 'x');
+
+        $this->assertSame('abc', TinyEnv::env('SECRET'));
+        $this->assertSame('db.internal', TinyEnv::env('DB_HOST'));
     }
 
     public function testFuzzMax_substitutionDepthExceeded()

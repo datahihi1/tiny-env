@@ -3,4 +3,7 @@ vendor/
 composer.lock
 .phpunit.result.cache
 .env.test
+.editorconfig
 demo.php
+/nbproject/private/
+rector.php
