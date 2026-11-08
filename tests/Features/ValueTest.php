@@ -223,7 +223,7 @@ class ValueTest extends \PHPUnit\Framework\TestCase
     {
         $dir = sys_get_temp_dir() . '/tinyenv-subst-cap-' . bin2hex(random_bytes(6));
         mkdir($dir, 0777, true);
-        file_put_contents($dir . '/.env', "A=" . str_repeat('x', 20000) . "\nB=${A}${A}${A}\n");
+        file_put_contents($dir . '/.env', "A=" . str_repeat('x', 20000) . "\nB=\${A}\${A}\${A}\n");
 
         try {
             $env = new TinyEnv($dir);
