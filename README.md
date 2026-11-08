@@ -7,7 +7,7 @@ Fast, Safe, Simple — designed for small to medium projects.
 ### Installation
 
 ```bash
-composer require datahihi1/tiny-env:1.1.1
+composer require datahihi1/tiny-env:1.2.0
 ```
 
 ### Quick Start
@@ -41,7 +41,7 @@ $env->load([], noFile: true);           // Load without requiring .env file to e
 
 #### 2. Fast load
 ```php
-$env = new TinyEnv(__DIR__, true); // Load immediately and populate $_SERVER|$_ENV but only .env and not recommended for production
+$env = new TinyEnv(__DIR__, true); // Load immediately from .env without populating superglobals unless you opt in
 ```
 
 #### 3. Multiple .env files
@@ -50,27 +50,16 @@ $env->envfiles(['.env', '.env.production', '.env.local']); // Load in order, pre
 $env->envfiles(['.env.production', '.env.local'], prioritizeEnv: true); // Prioritize .env file by loading it first, allows overwriting other files
 ```
 
-#### Allow specific stream wrappers (advanced)
-
-By default, TinyEnv rejects some values that look like dangerous PHP stream wrappers (e.g. `phar:`, `php://`, `data:`) to reduce the chance that an env value is later used unsafely by your app.
-
-If you *intentionally* need to use a wrapper such as `phar://...`, you can opt-in with an allowlist:
-
-```php
-$env = new TinyEnv(__DIR__);
-$env->allowWrapperSchemes(['phar']); // opt-in to allow phar://... values
-$env->load();
-```
-
 #### Populate Superglobals
 ```php
-$env = new TinyEnv(__DIR__); // By default, superglobals are NOT populated to avoid unintended side effects. You can enable it explicitly:
-$env->populateSuperglobals(); // Enable superglobals population
-$env->populateServerglobals(); // Enable server globals population
+$env = new TinyEnv(__DIR__); // By default, superglobals are NOT populated to avoid unintended side effects. Enable them explicitly:
+$env->populateSuperglobals(); // Enable $_ENV population
+$env->populateServerglobals(); // Enable $_SERVER population
+$env->populateProcessEnv(); // Enable putenv()/getenv() population
 $env->load();
 ```
 
-Or use `fastLoad` which will always populate superglobals - **But not recommended for production**.
+`fastLoad` only performs the initial load immediately; it does not populate `$_ENV`, `$_SERVER`, or the process environment unless you opt in explicitly.
 
 - Getting Values
 ```php
